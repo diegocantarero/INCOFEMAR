@@ -1,0 +1,61 @@
+name: Deploy Pages
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
+      - name: Install deps
+        run: |
+          npm ci || true
+          npm i react@18 react-dom@18 || true
+          npm i -D esbuild || true
+      - name: Build
+        run: |
+          mkdir -p shell-scripts/code
+          cat > shell-scripts/code/mount_entry.tsx <<'TSX'
+          import * as React from "react";
+          import { createRoot } from "react-dom/client";
+          import App from "../../main.txt";
+          function ensureAppRoot(){ let el=document.getElementById("app"); if(!el){ el=document.createElement("div"); el.id="app"; document.body.appendChild(el);} return el as HTMLElement; }
+          createRoot(ensureAppRoot()).render(React.createElement(App));
+          TSX
+          npx esbuild shell-scripts/code/mount_entry.tsx \
+            --bundle --format=esm --platform=browser --target=es2018 \
+            --sourcemap --jsx=automatic --loader:.txt=tsx \
+            --define:process.env.NODE_ENV="production" \
+            --outfile=dist/main.js
+          cat > dist/index.html <<'HTML'
+          <!doctype html><html lang="es"><head>
+          <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+          <title>INCOFEMAR · Comparativa</title>
+          <link rel="icon" href="./assets/Postpago.png">
+          </head><body><div id="app"></div><script type="module" src="./main.js"></script></body></html>
+          HTML
+          if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
+          if [ ! -f state.json ]; then echo '{}' > state.json; fi
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+

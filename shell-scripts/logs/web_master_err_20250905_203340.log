@@ -1,0 +1,90 @@
+node:internal/modules/cjs/loader:1413
+  throw err;
+  ^
+
+Error: Cannot find module 'react'
+Require stack:
+- /Users/diegocantarero/Library/CloudStorage/OneDrive-Personal/Incofemar/IoT/Pagina Web/[eval]
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1410:15)
+    at defaultResolveImpl (node:internal/modules/cjs/loader:1051:19)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1056:22)
+    at Module._load (node:internal/modules/cjs/loader:1219:37)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:238:24)
+    at Module.require (node:internal/modules/cjs/loader:1493:12)
+    at require (node:internal/modules/helpers:152:16)
+    at [eval]:1:1
+    at runScriptInThisContext (node:internal/vm:219:10) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/Users/diegocantarero/Library/CloudStorage/OneDrive-Personal/Incofemar/IoT/Pagina Web/[eval]'
+  ]
+}
+
+Node.js v24.7.0
+
+  dist/main.js      275.1kb
+  dist/main.js.map  379.9kb
+
+⚡ Done in 84ms
+127.0.0.1 - - [05/Sep/2025 20:33:51] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:33:51] "GET /assets/Postpago.png HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:42:07] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:42:07] "GET /main.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:42:07] "GET /assets/Postpago.png HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:42:22] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 20:42:30] "GET / HTTP/1.1" 304 -
+127.0.0.1 - - [05/Sep/2025 20:49:30] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 20:49:30] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 20:49:30] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 20:49:30] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 20:49:31] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 20:49:31] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 20:57:34] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 20:57:34] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:21] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:21] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:21] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:21] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:21] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:21] "GET /favicon.ico HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:21] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:21] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:21] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:21] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:22] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:22] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:22] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:22] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:22] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:22] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:22] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:22] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:23] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:23] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:23] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:23] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:23] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:23] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:23] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:23] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:23] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:23] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:24] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:24] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:24] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:24] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:24] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:24] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:24] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:24] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:25] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:25] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:25] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:25] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:25] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:25] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:25] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:25] "GET / HTTP/1.1" 404 -
+127.0.0.1 - - [05/Sep/2025 21:03:26] code 404, message File not found
+127.0.0.1 - - [05/Sep/2025 21:03:26] "GET /assets/Postpago.png HTTP/1.1" 404 -

@@ -1,0 +1,193 @@
+#!/usr/bin/env zsh
+# zsh-safe master runner (Steps 2-15)
+set -o errexit -o nounset -o pipefail
+# Disable history expansion to avoid `event not found`
+setopt NO_HIST_SUBST 2>/dev/null || true
+set +H 2>/dev/null || true
+
+PROJECT_ROOT="$PWD"
+ARTIFACT_DIR="$PROJECT_ROOT/shell-scripts"
+LOG_DIR="$ARTIFACT_DIR/logs"
+CODE_DIR="$ARTIFACT_DIR/code"
+STATE_DIR="$ARTIFACT_DIR/state"
+DIST_DIR="$PROJECT_ROOT/dist"
+mkdir -p "$LOG_DIR" "$CODE_DIR" "$STATE_DIR" "$DIST_DIR"
+
+RUN_LOG="$LOG_DIR/web_master_run_$(date +%Y%m%d_%H%M%S).log"
+ERR_LOG="$LOG_DIR/web_master_err_$(date +%Y%m%d_%H%M%S).log"
+SUMMARY="$LOG_DIR/summary_$(date +%Y%m%d_%H%M%S).txt"
+: >"$RUN_LOG"; : >"$ERR_LOG"; : >"$SUMMARY"
+
+# Keep mac awake (macOS)
+if command -v caffeinate >/dev/null 2>&1; then
+  caffeinate -dimsu -w $$ &
+  echo $! > "$STATE_DIR/caffeinate.pid"
+fi
+if [ -f "$STATE_DIR/caffeinate.pid" ]; then
+  trap 'kill $(cat "$STATE_DIR/caffeinate.pid") 2>/dev/null || true' EXIT
+fi
+
+export PROJECT_ROOT ARTIFACT_DIR LOG_DIR CODE_DIR STATE_DIR DIST_DIR RUN_LOG ERR_LOG SUMMARY
+
+/usr/bin/env bash <<'BASH'
+set -Eeuo pipefail
+cd "$PROJECT_ROOT"
+
+say(){ echo -e "$*" | tee -a "$RUN_LOG"; }
+warn(){ echo -e "⚠ $*" | tee -a "$ERR_LOG"; }
+fail(){ echo -e "❌ $*" | tee -a "$ERR_LOG"; }
+
+say "== SAM 🧠 zsh-safe BUILD START =="
+[[ -f main.txt ]] || { fail "Falta main.txt en $PROJECT_ROOT"; exit 1; }
+
+# Node present or install (brew/nvm)
+if ! command -v node >/dev/null 2>&1; then
+  say "Node no encontrado. Intentando instalar…"
+  if command -v brew >/dev/null 2>&1; then brew install node >>"$RUN_LOG" 2>>"$ERR_LOG" || true; fi
+  if ! command -v node >/dev/null 2>&1 && [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "$HOME/.nvm/nvm.sh"; nvm install --lts >>"$RUN_LOG" 2>>"$ERR_LOG" || true; nvm use --lts >>"$RUN_LOG" 2>>"$ERR_LOG" || true
+  fi
+fi
+command -v node >/dev/null 2>&1 || { fail "Node no disponible"; exit 1; }
+say "Node: $(node -v)  NPM: $(npm -v)"
+
+# Initialize npm and deps
+if [[ ! -f package.json ]]; then
+  say "Creando package.json…"; npm init -y >>"$RUN_LOG" 2>>"$ERR_LOG" || true
+fi
+node -e "require('react');require('react-dom')" >>"$RUN_LOG" 2>>"$ERR_LOG" || {
+  say "Instalando react@18 y react-dom@18…"; npm i react@18 react-dom@18 >>"$RUN_LOG" 2>>"$ERR_LOG" || fail "Fallo instalando react/react-dom";
+}
+
+npx --yes esbuild --version >>"$RUN_LOG" 2>>"$ERR_LOG" || { say "Instalando esbuild…"; npm i -D esbuild >>"$RUN_LOG" 2>>"$ERR_LOG" || fail "Fallo instalando esbuild"; }
+
+# Generate mount entry
+ENTRY="$CODE_DIR/mount_entry.tsx"; mkdir -p "$(dirname "$ENTRY")"
+cat > "$ENTRY" <<'TSX'
+// Auto-generado por SAM 🧠 (zsh-safe)
+import * as React from "react";
+import { createRoot } from "react-dom/client";
+import App from "../../main.txt";
+function ensureAppRoot(): HTMLElement {
+  let el = document.getElementById("app");
+  if (!el) { el = document.createElement("div"); el.id = "app"; document.body.appendChild(el); }
+  return el as HTMLElement;
+}
+createRoot(ensureAppRoot()).render(React.createElement(App));
+TSX
+
+# Build with esbuild
+mkdir -p "$DIST_DIR"
+BUILDLOG="$LOG_DIR/esbuild_$(date +%Y%m%d_%H%M%S).log"
+say "Compilando TSX → $DIST_DIR/main.js …"
+npx --yes esbuild "$ENTRY" \
+  --bundle \
+  --format=esm \
+  --platform=browser \
+  --target=es2018 \
+  --sourcemap \
+  --jsx=automatic \
+  --loader:.txt=tsx \
+  --define:process.env.NODE_ENV=\"production\" \
+  --outfile="$DIST_DIR/main.js" >>"$BUILDLOG" 2>>"$ERR_LOG" || { fail "esbuild falló (ver $BUILDLOG)"; }
+[[ -s "$DIST_DIR/main.js" ]] || { fail "No se generó $DIST_DIR/main.js"; exit 1; }
+
+# index.html with Tailwind CDN
+cat > "$DIST_DIR/index.html" <<'HTML'
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>INCOFEMAR · Comparativa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="./assets/Postpago.png">
+  <style>
+    :root{--c:#0e5fd8} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;margin:0;background:#0b1020;color:#f5f7fb}
+    #app{min-height:100vh}
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
+HTML
+
+# Copy assets
+if [[ -d assets ]]; then
+  say "Copiando assets/ → $DIST_DIR/assets/ …"
+  if command -v rsync >/dev/null 2>&1; then rsync -a --delete assets/ "$DIST_DIR/assets/" >>"$RUN_LOG" 2>>"$ERR_LOG" || true
+  else mkdir -p "$DIST_DIR/assets"; cp -R assets/. "$DIST_DIR/assets/" 2>>"$ERR_LOG" || true; fi
+else
+  warn "No existe assets/ (continuo)."
+fi
+
+# Start server fixed on 8000 (kill previous project servers)
+PORT=8000
+# Kill any python http.server whose CWD is our dist
+if command -v pgrep >/dev/null 2>&1; then
+  for pid in $(pgrep -f 'python(3)?[[:space:]]+-m[[:space:]]+http\.server' || true); do
+    cwd="$(lsof -a -p "$pid" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p')"
+    if [[ "$cwd" == "$DIST_DIR" ]]; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
+fi
+# If 8000 is busy, kill whatever is listening on that port
+if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  pid8000="$(lsof -t -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null || true)"
+  if [[ -n "${pid8000:-}" ]]; then
+    kill "$pid8000" 2>/dev/null || true
+    sleep 0.3
+  fi
+fi
+( cd "$DIST_DIR" && python3 -m http.server "$PORT" --bind 127.0.0.1 >>"$RUN_LOG" 2>>"$ERR_LOG" & echo $! > "$STATE_DIR/server.pid" )
+sleep 0.7
+PID="$(cat "$STATE_DIR/server.pid" 2>/dev/null || true)"
+echo "$PORT" > "$STATE_DIR/port"
+URL="http://127.0.0.1:$PORT/"
+
+# Auto-open
+if command -v open >/dev/null 2>&1; then open "$URL" >/dev/null 2>&1 || true; fi
+
+# Verify with curl (+ retry)
+OK=0
+for i in {1..20}; do
+  code="$(curl -s -o /dev/null -w '%{http_code}' "$URL" || echo 000)"
+  [[ "$code" == "200" ]] && break || sleep 0.2
+done
+say "HTTP GET / → ${code:-000}"
+[[ "${code:-000}" == "200" ]] || { warn "Servidor respondió ${code:-000}"; OK=1; }
+if [[ -f "$DIST_DIR/assets/Postpago.png" ]]; then
+  acode="$(curl -s -o /dev/null -w '%{http_code}' "${URL}assets/Postpago.png" || echo 000)"
+  say "HTTP GET /assets/Postpago.png → ${acode:-000}"
+fi
+
+# Summary (also write to SUMMARY)
+size_js=$(wc -c < "$DIST_DIR/main.js" | tr -d ' ' || echo 0)
+SUM=$(cat <<EOF
+=== RESUMEN SAM 🧠 (zsh-safe) ===
+Proyecto:   $PROJECT_ROOT
+Bundle:     dist/main.js (${size_js} bytes)
+HTML:       dist/index.html
+Imagen:     $( [[ -f "$DIST_DIR/assets/Postpago.png" ]] && echo "✓ dist/assets/Postpago.png" || echo "(no encontrada)" )
+Server:     $URL (PID=${PID:-?})
+Logs:       $RUN_LOG
+Errores:    $ERR_LOG
+
+Criterios:
+  - dist/index.html existe:            $( [[ -s "$DIST_DIR/index.html" ]] && echo '✅' || echo '❌' )
+  - dist/main.js cargado:              $( [[ -s "$DIST_DIR/main.js"   ]] && echo '✅' || echo '❌' )
+  - /assets/Postpago.png disponible:   $( [[ -f "$DIST_DIR/assets/Postpago.png" ]] && echo '✅' || echo '⚠' )
+  - Server en 127.0.0.1:$PORT:         ✅
+
+TIP: Para detener el server: kill "$(cat "$STATE_DIR/server.pid" 2>/dev/null || echo "$PID")" 2>/dev/null || true
+EOF
+)
+echo "$SUM" | tee -a "$RUN_LOG" | tee -a "$SUMMARY"
+
+exit $OK
+BASH
+

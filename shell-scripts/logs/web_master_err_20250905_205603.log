@@ -1,0 +1,13 @@
+
+  dist/main.js      275.1kb
+  dist/main.js.map  379.8kb
+
+⚡ Done in 21ms
+127.0.0.1 - - [05/Sep/2025 20:56:06] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:56:06] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:56:06] "GET /assets/Postpago.png HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:56:06] "GET /main.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:56:06] "GET /assets/Postpago.png HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:57:27] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:57:27] "GET /main.js HTTP/1.1" 200 -
+127.0.0.1 - - [05/Sep/2025 20:57:28] "GET /assets/Postpago.png HTTP/1.1" 200 -

@@ -1,0 +1,785 @@
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+// Helpers
+const L = (n: number | string) => `L${Number(n).toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const round2 = (n: number | string) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+const SmartImg = React.memo(function SmartImg({ srcs, alt, className }: { srcs: string[]; alt?: string; className?: string }) {
+  const [i, setI] = React.useState(0);
+  const [fallbackObject, setFallbackObject] = React.useState(false);
+  const shown = srcs[Math.min(i, srcs.length - 1)];
+  if (fallbackObject) {
+    return (
+      <object data={shown} type="image/png" className={className} aria-label={alt || ""}>
+        <img src={(shown || "") + (shown.includes("?") ? "&" : "?") + "v=1"} alt={alt || ""} className={className} />
+      </object>
+    );
+  }
+  return (
+    <img
+      key={shown}
+      src={shown}
+      alt={alt || ""}
+      className={className}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => {
+        setI((x) => {
+          const next = x + 1;
+          if (next < srcs.length) return next;
+          setFallbackObject(true);
+          return x;
+        });
+      }}
+    />
+  );
+});
+
+// === Configuración de precios (ISV incluido / sin ISV cuando aplique) ===
+const CURRENT_PER_LINE = 500; // Actual
+const CLARO_PERSONAL_PER_LINE = 669;
+const CLARO_EMP_PER_LINE = 355.35;
+const TIGO_PER_LINE = 510;
+
+// Financiados (importe mensual con ISV ya incluido)
+const A16_MONTHLY = 532.13;
+const TAB_A9_MONTHLY_50 = 515.26;
+
+// Internet residencial
+const INTERNET_MAP: Record<string, { key: string; price: number }[]> = {
+  Claro: [
+    { key: "GPON 500 MB + TV", price: 1375.00003 },
+    { key: "GPON 500 MB", price: 1051.99999 },
+    { key: "GPON 330 MB + TV", price: 1025.00029 },
+    { key: "GPON 330 MB", price: 702.00025 },
+    { key: "GPON 130 MB + TV", price: 799.0 },
+    { key: "GPON 130 MB", price: 476.0 },
+    { key: "TV", price: 274.0 },
+  ],
+  Tigo: [
+    { key: "ONE TV 400 Mbps (incluye TV)", price: 1625.0 },
+    { key: "ONE TV 300 Mbps (Android + DVB)", price: 1130.0 },
+    { key: "ONE TV 300 Mbps (DVB)", price: 885.0 },
+    { key: "Solo Internet 300 Mbps", price: 810.0 },
+    { key: "Solo Internet 300 Mbps Plus", price: 1355.0 },
+  ],
+};
+
+const makeId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+// Personas
+type Person = { id: string; name: string };
+const INITIAL_PEOPLE: Person[] = [
+  { id: makeId(), name: "Francis" },
+  { id: makeId(), name: "Amilcar" },
+  { id: makeId(), name: "Alfredo" },
+  { id: makeId(), name: "Diego" },
+  { id: makeId(), name: "Linsey" },
+  { id: makeId(), name: "Estela" },
+];
+
+// Residenciales
+type Branch = { id: string; name: string; provider: keyof typeof INTERNET_MAP; planKey: string };
+const INITIAL_BRANCHES: Branch[] = [
+  { id: makeId(), name: "Residencial Francis", provider: "Claro", planKey: "GPON 330 MB + TV" },
+  { id: makeId(), name: "Residencial Amilcar", provider: "Claro", planKey: "GPON 130 MB + TV" },
+  { id: makeId(), name: "Residencial Angela", provider: "Claro", planKey: "TV" },
+];
+
+// Dispositivos financiados
+type DeviceKey = "Galaxy A16" | "Samsung Tab A9";
+const DEVICE_OPTIONS: { key: DeviceKey; monthly: number }[] = [
+  { key: "Galaxy A16", monthly: A16_MONTHLY },
+  { key: "Samsung Tab A9", monthly: TAB_A9_MONTHLY_50 },
+];
+
+// Directorio base
+type DirectorySeed = { name: string; phone: string; operator: string };
+const DIRECTORY_DEFAULT: DirectorySeed[] = [
+  { name: "Francis", phone: "8787-1455", operator: "Claro Prepago" },
+  { name: "Estela", phone: "3223-9887", operator: "Claro Prepago" },
+  { name: "Amilcar", phone: "9969-6296", operator: "Tigo Prepago" },
+  { name: "Alfredo", phone: "9596-8068", operator: "Tigo Prepago" },
+  { name: "Diego", phone: "3190-9594", operator: "Tigo Prepago" },
+  { name: "Linsey", phone: "9858-3866", operator: "Claro Postpago + Celular" },
+];
+
+// Plan por línea (sin ISV)
+export type PlanTier = "Bss S" | "Bss 1" | "Bss 2";
+const PLAN_BASE_SIN_ISV: Record<PlanTier, number> = {
+  "Bss S": 309,
+  "Bss 1": 399,
+  "Bss 2": 519,
+};
+
+const STORAGE_KEY = "incofemar_comp_vs_v6";
+
+function buildDefaultDevices(peopleArr: Person[]) {
+  const byName = (n: string) => peopleArr.find((p) => (p.name || "").toLowerCase() === n.toLowerCase());
+  const map: Record<string, DeviceKey[]> = {};
+  const am = byName("Amilcar"); if (am) map[am.id] = ["Galaxy A16"];
+  const al = byName("Alfredo"); if (al) map[al.id] = ["Galaxy A16"];
+  const es = byName("Estela"); if (es) map[es.id] = ["Samsung Tab A9"];
+  return map;
+}
+
+function buildDefaultPlans(peopleArr: Person[]): Record<string, PlanTier> {
+  const map: Record<string, PlanTier> = {};
+  for (const p of peopleArr) {
+    map[p.id] = p.name.toLowerCase() === "linsey" ? "Bss 2" : "Bss S";
+  }
+  return map;
+}
+
+function buildDefaultContacts(peopleArr: Person[]) {
+  const map: Record<string, { phone: string; operator: string }> = {};
+  for (const p of peopleArr) {
+    const seed = DIRECTORY_DEFAULT.find((d) => d.name.toLowerCase() === (p.name || "").toLowerCase());
+    map[p.id] = { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
+  }
+  return map;
+}
+
+export default function IncofemarComparativa() {
+  const [people, setPeople] = useState<Person[]>(INITIAL_PEOPLE);
+  const [dark, setDark] = useState(true);
+  const [mobilePlan, setMobilePlan] = useState("Claro Empresarial");
+  const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
+  const [devicesByPerson, setDevicesByPerson] = useState<Record<string, DeviceKey[]>>({});
+  const [planByPerson, setPlanByPerson] = useState<Record<string, PlanTier>>({});
+  const [contactsByPerson, setContactsByPerson] = useState<Record<string, { phone: string; operator: string }>>({});
+  const [hydrated, setHydrated] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+
+  // Persistencia remota (GitHub) y Undo (10s)
+  const [undo, setUndo] = useState<any>(null);
+  const [undoTimerId, setUndoTimerId] = useState<any>(null);
+  const REPO_INFO = { owner: "diegocantarero", repo: "INCOFEMAR", branch: "main", statePath: "state.json" };
+
+  function snapshotState() {
+    return { people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson };
+  }
+
+  const saveDebounce = React.useRef<any>(null);
+  function enqueueSaveRemote() {
+    if (saveDebounce.current) clearTimeout(saveDebounce.current);
+    saveDebounce.current = setTimeout(() => saveRemote(snapshotState()), 900);
+  }
+
+  async function saveRemote(state: any) {
+    try {
+      const token = (window as any).GH_TOKEN || localStorage.getItem("GH_TOKEN") || "";
+      if (!token) return; // sin token, no intentamos escribir
+      const { owner, repo, branch, statePath } = REPO_INFO as any;
+      let sha: string | undefined = undefined;
+      const get = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${statePath}?ref=${branch}`, {
+        headers: { Authorization: `token ${token}` }
+      });
+      if (get.ok) {
+        const j = await get.json();
+        sha = j.sha;
+      }
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(state, null, 2))));
+      const body = { message: "Update state.json (via app)", content, branch, sha } as any;
+      const put = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/${statePath}`, {
+        method: "PUT",
+        headers: { Authorization: `token ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!put.ok) {
+        try { console.warn("saveRemote error", await put.text()); } catch {}
+      }
+    } catch (e) { console.warn("saveRemote exception", e); }
+  }
+
+  function showUndo(kind: "person" | "branch", item: any, restore: () => void) {
+    if (undoTimerId) clearTimeout(undoTimerId as any);
+    setUndo({ kind, item, restore });
+    const t = setTimeout(() => setUndo(null), 10000);
+    setUndoTimerId(t);
+  }
+
+  // Hydrate (1º remoto state.json, 2º localStorage)
+  useEffect(() => {
+    (async () => {
+      let loaded = false;
+      try {
+        const url = "https://raw.githubusercontent.com/diegocantarero/INCOFEMAR/main/state.json?cb=" + Date.now();
+        const resp = await fetch(url, { cache: "no-store" });
+        if (resp.ok) {
+          const p = await resp.json();
+          if (p.people) setPeople(p.people);
+          if (p.dark != null) setDark(p.dark);
+          if (Array.isArray(p.branches)) setBranches(p.branches);
+          if (p.mobilePlan) setMobilePlan(p.mobilePlan);
+          if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
+          if (p.planByPerson) setPlanByPerson(p.planByPerson);
+          if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
+          loaded = true;
+        }
+      } catch {}
+      if (!loaded) {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const p = JSON.parse(raw);
+            if (p.people) setPeople(p.people);
+            if (p.dark != null) setDark(p.dark);
+            if (Array.isArray(p.branches) && p.branches.length) {
+              const normalized = p.branches.map((b: any) => {
+                const nm = String(b.name || "").trim();
+                const lower = nm.toLowerCase();
+                let fixed = nm;
+                if (lower.startsWith("casa ")) fixed = "Residencial " + nm.slice(5);
+                if (lower.startsWith("residencail ")) fixed = "Residencial " + nm.slice(11);
+                return { ...b, name: fixed };
+              });
+              setBranches(normalized);
+            }
+            if (p.mobilePlan) setMobilePlan(p.mobilePlan === "Personal" ? "Actual" : p.mobilePlan);
+            if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
+            if (p.planByPerson) setPlanByPerson(p.planByPerson);
+            if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
+          }
+        } catch {}
+      }
+      setHydrated(true);
+    })();
+  }, []);
+
+  // Defaults after hydration + asegurar nombres base presentes y datos por persona
+  useEffect(() => {
+    if (!hydrated) return;
+
+    // Asegurar que existan los nombres base solicitados
+    const mustHave = ["Francis", "Amilcar", "Alfredo"];
+    const lower = new Set((people || []).map((p) => (p.name || "").toLowerCase()));
+    if (mustHave.some((n) => !lower.has(n.toLowerCase()))) {
+      const adds: Person[] = [];
+      for (const name of mustHave) {
+        if (!lower.has(name.toLowerCase())) {
+          adds.push({ id: makeId(), name });
+        }
+      }
+      if (adds.length) setPeople((prev) => [...adds, ...prev]);
+    }
+
+    // Defaults cuando están vacíos
+    if (Object.keys(devicesByPerson || {}).length === 0 && people.length) {
+      setDevicesByPerson(buildDefaultDevices(people));
+    }
+    if (Object.keys(planByPerson || {}).length === 0 && people.length) {
+      setPlanByPerson(buildDefaultPlans(people));
+    }
+    if (Object.keys(contactsByPerson || {}).length === 0 && people.length) {
+      setContactsByPerson(buildDefaultContacts(people));
+    }
+
+    // Completar plan/contactos para cualquier persona que no tenga aún
+    setPlanByPerson((prev) => {
+      const next = { ...prev } as Record<string, PlanTier>;
+      let changed = false;
+      for (const p of people) {
+        if (!(p.id in next)) {
+          next[p.id] = p.name.toLowerCase() === "linsey" ? "Bss 2" : "Bss S";
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    setContactsByPerson((prev) => {
+      const next = { ...prev } as Record<string, { phone: string; operator: string }>;
+      let changed = false;
+      for (const p of people) {
+        if (!(p.id in next)) {
+          const seed = DIRECTORY_DEFAULT.find((d) => (d.name || "").toLowerCase() === (p.name || "").toLowerCase());
+          next[p.id] = { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    // Si faltan dispositivos por persona conocidos por nombre, sugerir defaults
+    setDevicesByPerson((prev) => {
+      const next = { ...prev } as Record<string, DeviceKey[]>;
+      let changed = false;
+      for (const p of people) {
+        const nm = (p.name || "").toLowerCase();
+        const has = Array.isArray(next[p.id]) && next[p.id].length > 0;
+        if (!has) {
+          if (nm === "amilcar" || nm === "alfredo") { next[p.id] = ["Galaxy A16"]; changed = true; }
+          else if (nm === "estela") { next[p.id] = ["Samsung Tab A9"]; changed = true; }
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [hydrated, people]);
+
+  // Persist: localStorage + (si hay token) GitHub
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const snapshot = snapshotState();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+      enqueueSaveRemote();
+    } catch {}
+  }, [hydrated, people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson]);
+
+  const lines = people.length;
+
+  const actualMonthly = round2(CURRENT_PER_LINE * lines);
+  const claroPersMonthly = round2(CLARO_PERSONAL_PER_LINE * lines);
+  const claroEmpMonthly = round2(CLARO_EMP_PER_LINE * lines);
+  const tigoMonthly = round2(TIGO_PER_LINE * lines);
+
+  const ahorroClaroPersonal = round2(actualMonthly - claroPersMonthly);
+  const ahorroClaroEmp = round2(actualMonthly - claroEmpMonthly);
+  const ahorroTigo = round2(actualMonthly - tigoMonthly);
+
+  // Residenciales
+  const branchTotals = branches.map((b) => {
+    const list = INTERNET_MAP[b.provider] || INTERNET_MAP["Claro"];
+    const plan = list.find((p) => p.key === b.planKey) || list[0];
+    return { id: b.id, name: b.name, provider: b.provider, planKey: plan.key, price: round2(plan.price || 0) };
+  });
+  const residencialesTotal = round2(branchTotals.reduce((a, c) => a + c.price, 0));
+
+  // Directorio calculado
+  const directoryRows = useMemo(() => {
+    return people.map((p) => {
+      const seed = DIRECTORY_DEFAULT.find((d) => (d.name || "").toLowerCase() === (p.name || "").toLowerCase());
+      const contact = contactsByPerson[p.id] || { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
+      const devices = devicesByPerson[p.id] || [];
+      const planTier = planByPerson[p.id] || "Bss S";
+      const sinISV = PLAN_BASE_SIN_ISV[planTier] ?? 0;
+      const finA16 = devices.filter((x) => x === "Galaxy A16").length * 64;
+      const finA9 = devices.filter((x) => x === "Samsung Tab A9").length * 49;
+      const finance = round2(finA16 + finA9);
+      const subtotal = round2(sinISV + finance);
+      const isv = round2(subtotal * 0.15);
+      const total = round2(subtotal + isv);
+      return {
+        id: p.id,
+        name: p.name,
+        phone: contact.phone,
+        operator: contact.operator,
+        planTier,
+        sinISV,
+        finance,
+        subtotal,
+        isv,
+        total,
+        deviceLabel: devices.length ? devices.map((x) => (x === "Galaxy A16" ? "A16" : "Tab A9")).join(", ") : "—",
+      } as any;
+    });
+  }, [people, devicesByPerson, planByPerson, contactsByPerson]);
+
+  const directoryTotalsSum = useMemo(() => round2(directoryRows.reduce((a, r) => a + ((r as any).total || 0), 0)), [directoryRows]);
+  const financeTotalsSum = useMemo(() => round2(directoryRows.reduce((a, r) => a + ((r as any).finance || 0), 0)), [directoryRows]);
+
+  const totalSinEquipo = round2(directoryTotalsSum + residencialesTotal);
+
+  const addPerson = useCallback(() => {
+    const id = makeId();
+    setPeople((prev) => {
+      const newP: Person = { id, name: `Persona ${prev.length + 1}` };
+      setPlanByPerson((prevPlan) => ({ ...prevPlan, [id]: "Bss S" as PlanTier }));
+      setContactsByPerson((prevC) => ({ ...prevC, [id]: { phone: "", operator: "Claro Prepago" } }));
+      return [...prev, newP];
+    });
+  }, []);
+
+  const removePerson = (id: string) => {
+    const removed = people.find((p) => p.id === id);
+    if (!removed) return;
+    const prevDevices = { ...(devicesByPerson || {})[id] ? { [id]: (devicesByPerson as any)[id] } : {} } as any;
+    const prevPlan = (planByPerson as any)[id];
+    const prevContact = (contactsByPerson as any)[id];
+
+    setPeople(people.filter((p) => p.id !== id));
+    setDevicesByPerson((prev) => { const n: any = { ...prev }; delete n[id]; return n; });
+    setPlanByPerson((prev) => { const n: any = { ...prev }; delete n[id]; return n; });
+    setContactsByPerson((prev) => { const n: any = { ...prev }; delete n[id]; return n; });
+
+    const restore = () => {
+      setPeople((prev) => {
+        if (prev.some((p) => p.id === removed.id)) return prev;
+        return [removed, ...prev];
+      });
+      if (prevDevices[id]) setDevicesByPerson((prev) => ({ ...prev, [id]: prevDevices[id] }));
+      if (prevPlan) setPlanByPerson((prev: any) => ({ ...prev, [id]: prevPlan }));
+      if (prevContact) setContactsByPerson((prev: any) => ({ ...prev, [id]: prevContact }));
+    };
+    showUndo("person", removed, restore);
+  };
+
+  // Selección de dispositivo
+  const setSingleDevice = useCallback((pid: string, value: "" | DeviceKey) => {
+    setDevicesByPerson((prev) => {
+      const next = { ...prev };
+      if (!value) delete next[pid]; else next[pid] = [value];
+      return next;
+    });
+  }, []);
+
+  // DnD reordenamiento por filas
+  const onDropRow = (targetId: string) => {
+    if (!dragId || dragId === targetId) return;
+    setPeople((prev) => {
+      const from = prev.findIndex((x) => x.id === dragId);
+      const to = prev.findIndex((x) => x.id === targetId);
+      if (from < 0 || to < 0) return prev;
+      const arr = [...prev];
+      const [item] = arr.splice(from, 1);
+      arr.splice(to, 0, item);
+      return arr;
+    });
+    setDragId(null);
+  };
+
+  const bgApp = dark ? "bg-neutral-900 text-neutral-100" : "bg-neutral-50 text-neutral-900";
+  const card = dark ? "bg-neutral-800 text-neutral-100" : "bg-white";
+  const subtle = dark ? "text-neutral-300" : "text-neutral-600";
+  const rowBg = dark ? "bg-neutral-700" : "bg-neutral-50";
+
+  const handlePrint = () => {
+    const trigger = () => window.print();
+    if ((window as any).requestIdleCallback) (window as any).requestIdleCallback(trigger, { timeout: 300 });
+    else if (window.requestAnimationFrame) window.requestAnimationFrame(trigger);
+    else trigger();
+  };
+
+  function removeBranch(id: string) {
+    const removed = branches.find((b) => b.id === id);
+    if (!removed) return;
+    setBranches(branches.filter((x) => x.id !== id));
+    const restore = () => setBranches((prev) => [removed, ...prev]);
+    showUndo("branch", removed, restore);
+  }
+
+
+  return (
+    <div className={`min-h-screen w-full ${bgApp}`}>
+      <div className="mx-auto w-full max-w-none p-3 sm:p-4 md:p-6 lg:p-8">
+        <header className="mb-6 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight">
+              INCOFEMAR · <span className="text-blue-500">Comparativa Postpago</span>
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setDark(!dark)}
+              className="rounded-2xl px-4 py-2 shadow-sm ring-1 ring-neutral-300 hover:bg-neutral-100"
+            >
+              {dark ? "Tema claro" : "Tema oscuro"}
+            </button>
+            <div className="relative group">
+              <button
+                type="button"
+                title="Atajo: Ctrl + P"
+                onMouseDown={handlePrint}
+                onClick={handlePrint}
+                className="rounded-2xl px-4 py-2 shadow-sm ring-1 ring-neutral-300 hover:bg-neutral-100"
+              >
+                Imprimir
+              </button>
+              <span className="absolute -top-8 right-0 hidden group-hover:block rounded-md bg-neutral-800 text-white text-xs px-2 py-1 shadow-lg print:hidden">
+                Ctrl + P
+              </span>
+            </div>
+          </div>
+        </header>
+        {undo && (
+          <div className="fixed bottom-4 right-4 z-50 rounded-xl bg-amber-50 text-amber-900 shadow-lg ring-1 ring-amber-300 px-4 py-3 max-w-md">
+            <div className="flex items-center gap-3">
+              <strong>Acción disponible para deshacer</strong>
+              <button
+                type="button"
+                onClick={() => { undo.restore(); setUndo(null); }}
+                className="rounded-lg bg-amber-600 text-white px-3 py-1 text-sm hover:bg-amber-700"
+              >
+                Restaurar
+              </button>
+            </div>
+            <div className="text-xs mt-1 opacity-80">Este aviso se cierra automáticamente en 10s.</div>
+          </div>
+        )}
+
+        <section className={`${card} mt-6 rounded-2xl p-5 shadow-sm`}>
+          <h2 className="text-lg font-semibold">Directorio y plan por línea</h2>
+          <div className="overflow-x-auto mt-2">
+            <table className="min-w-full border-separate border-spacing-y-2 text-sm">
+              <thead className={subtle}>
+                <tr>
+                  <th className="text-left px-3">Operador</th>
+                  <th className="text-left px-3">Nombre</th>
+                  <th className="text-left px-3">Teléfono</th>
+                  <th className="text-left px-3">Dispositivo</th>
+                  <th className="text-left px-3">Plan</th>
+                  <th className="text-right px-3">Sin ISV</th>
+                  <th className="text-right px-3">Financ.</th>
+                  <th className="text-right px-3">Subtotal</th>
+                  <th className="text-right px-3">ISV (15%)</th>
+                  <th className="text-right px-3">Total</th>
+                  <th className="text-right px-3">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {directoryRows.map((r: any) => (
+                  <tr
+                    key={r.id}
+                    className={`${rowBg} rounded-xl`}
+                    draggable
+                    onDragStart={() => setDragId(r.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => onDropRow(r.id)}
+                  >
+                    <td className="px-3 py-2">
+                      <select
+                        className="rounded-xl border px-2 py-1 bg-transparent"
+                        value={r.operator}
+                        onChange={(e) => setContactsByPerson((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] || { phone: r.phone }), operator: e.target.value } }))}
+                      >
+                        <option>Tigo Prepago</option>
+                        <option>Claro Prepago</option>
+                        <option>Claro Postpago</option>
+                        <option>Claro Postpago + Celular</option>
+                        <option>Claro Empresarial</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 font-medium">
+                      <input
+                        value={r.name}
+                        onChange={(e) => setPeople((prev) => prev.map((p) => (p.id === r.id ? { ...p, name: e.target.value } : p)))}
+                        className="rounded-xl border px-2 py-1 bg-transparent w-40"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <input
+                        value={r.phone}
+                        onChange={(e) => setContactsByPerson((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] || { operator: "Claro Prepago", phone: "" }), phone: e.target.value } }))}
+                        className="rounded-xl border px-2 py-1 bg-transparent w-36"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        className="rounded-xl border px-2 py-1 bg-transparent"
+                        value={(devicesByPerson[r.id]?.[0] as any) || ""}
+                        onChange={(e) => setSingleDevice(r.id, (e.target.value || "") as any)}
+                      >
+                        <option value="">—</option>
+                        <option value="Galaxy A16">Galaxy A16</option>
+                        <option value="Samsung Tab A9">Samsung Tab A9</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2">
+                      <select
+                        className="rounded-xl border px-2 py-1 bg-transparent"
+                        value={planByPerson[r.id] || "Bss S"}
+                        onChange={(e) => setPlanByPerson((prev) => ({ ...prev, [r.id]: e.target.value as PlanTier }))}
+                      >
+                        <option value="Bss S">Bss S</option>
+                        <option value="Bss 1">Bss 1</option>
+                        <option value="Bss 2">Bss 2</option>
+                      </select>
+                    </td>
+                    <td className="px-3 py-2 text-right">{L(r.sinISV)}</td>
+                    <td className="px-3 py-2 text-right">{L(r.finance)}</td>
+                    <td className="px-3 py-2 text-right">{L(r.subtotal)}</td>
+                    <td className="px-3 py-2 text-right">{L(r.isv)}</td>
+                    <td className="px-3 py-2 text-right">{L(r.total)}</td>
+                    <td className="px-3 py-2">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="cursor-move select-none opacity-70">⋮⋮</span>
+                        <button
+                          type="button"
+                          onClick={() => removePerson(r.id)}
+                          className="rounded-xl p-2 ring-1 ring-rose-300 text-rose-600 hover:bg-rose-50"
+                          aria-label="Eliminar"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                            <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1zm-3 6h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm5 2v8h2v-8H8z" />
+                          </svg>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className={`${rowBg} rounded-xl`}>
+                  <td colSpan={6}></td>
+                  <td className="px-3 py-2 text-right">{L(financeTotalsSum)}</td>
+                  <td colSpan={2}></td>
+                  <td className="px-3 py-2 text-right font-extrabold">{L(directoryTotalsSum)}</td>
+                  <td className="px-3 py-2 text-right print:hidden"></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div className="mt-3 flex items-center justify-start text-sm">
+            <button
+              type="button"
+              onClick={addPerson}
+              className="rounded-2xl px-3 py-1.5 ring-1 ring-neutral-300 hover:bg-neutral-50 flex items-center gap-2"
+            >
+              <span className="text-lg leading-none">＋</span> Añadir integrante
+            </button>
+          </div>
+        </section>
+
+        <section className={`${card} mt-4 rounded-2xl p-4 shadow-sm`}>
+          <h2 className="text-lg font-semibold">Referencia de planes empresariales</h2>
+          <div className="mt-2">
+            <SmartImg
+              srcs={[
+                "/assets/Postpago.png",
+                "/Postpago.png",
+                "/assets/postpago.png",
+                "/postpago.png",
+                "sandbox:/mnt/data/Postpago.png",
+                "sandbox:/mnt/data/Postpago.png?v=1",
+                "sandbox:/mnt/data/postpago.png",
+                "sandbox:/mnt/data/postpago.png?v=1",
+                "sandbox:/mnt/data/Postpago.jpg",
+                "sandbox:/mnt/data/Postpago.jpg?v=1",
+                "sandbox:/mnt/data/Postpago.jpeg",
+                "sandbox:/mnt/data/Postpago.jpeg?v=1"
+              ]}
+              alt="Tabla de planes Business"
+              className="w-full rounded-xl border"
+            />
+          </div>
+        </section>
+
+        <section className="mt-6 grid gap-4">
+          <div className={`${card} rounded-2xl p-4 shadow-sm`}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className={`text-base font-bold ${subtle}`}>Servicios residenciales por ubicación</h2>
+              <button
+                type="button"
+                onClick={() => setBranches((prev) => [...prev, { id: makeId(), name: `Residencial ${prev.length + 1}`, provider: "Claro", planKey: INTERNET_MAP["Claro"][0].key }])}
+                className="rounded-2xl px-3 py-1.5 ring-1 ring-neutral-300 hover:bg-neutral-50"
+              >
+                Añadir residencial
+              </button>
+            </div>
+            <div className="space-y-3">
+              {branches.map((b) => {
+                const list = INTERNET_MAP[b.provider] || INTERNET_MAP["Claro"];
+                const selected = list.find((p) => p.key === b.planKey) || list[0];
+                return (
+                  <div key={b.id} className="grid grid-cols-1 md:grid-cols-6 items-center gap-2">
+                    <input
+                      className="md:col-span-2 rounded-xl border px-3 py-2 bg-transparent"
+                      value={b.name}
+                      onChange={(e) => {
+                        const copy = branches.map((x) => (x.id === b.id ? { ...x, name: e.target.value } : x));
+                        setBranches(copy);
+                      }}
+                    />
+                    <select
+                      className="rounded-xl border px-2 py-2 bg-transparent"
+                      value={b.provider}
+                      onChange={(e) => {
+                        const provider = e.target.value as keyof typeof INTERNET_MAP;
+                        const first = INTERNET_MAP[provider][0].key;
+                        const copy = branches.map((x) => (x.id === b.id ? { ...x, provider, planKey: first } : x));
+                        setBranches(copy);
+                      }}
+                    >
+                      <option>Claro</option>
+                      <option>Tigo</option>
+                    </select>
+                    <div className="md:col-span-2 flex items-center gap-2">
+                      <select
+                        className="flex-1 rounded-xl border px-2 py-2 bg-transparent"
+                        value={b.planKey}
+                        onChange={(e) => {
+                          const copy = branches.map((x) => (x.id === b.id ? { ...x, planKey: e.target.value } : x));
+                          setBranches(copy);
+                        }}
+                      >
+                        {list.map((p) => (
+                          <option key={p.key} value={p.key}>
+                            {p.key}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => removeBranch(b.id)}
+                        className="rounded-xl p-2 ring-1 ring-rose-300 text-rose-600 hover:bg-rose-50"
+                        aria-label="Eliminar residencial"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                          <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1zm-3 6h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm5 2v8h2v-8H8z" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="text-right font-semibold">{L(selected.price || 0)}</div>
+                  </div>
+                );
+              })}
+              <div className="grid grid-cols-1 md:grid-cols-6 items-center gap-2 border-t pt-2">
+                <div className="md:col-span-5 text-right font-bold">Total residencial</div>
+                <div className="text-right font-extrabold">{L(residencialesTotal)}</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className={`${card} mt-6 rounded-2xl p-4 shadow-sm`}>
+          <h2 className={`text-base font-bold ${subtle}`}>Totales combinados</h2>
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className={subtle}>Móvil</span>
+            <select value={mobilePlan} onChange={(e) => setMobilePlan(e.target.value)} className="rounded-xl border px-2 py-1 bg-transparent">
+              <option>Actual</option>
+              <option>Claro Personal</option>
+              <option>Claro Empresarial</option>
+              <option>Tigo Empresarial</option>
+            </select>
+          </div>
+          <div className="mt-2 space-y-1 text-sm">
+            <div className="flex items-center justify-between">
+              <span>Móvil (del Directorio)</span>
+              <span className="font-semibold">{L(directoryTotalsSum)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Servicios residenciales seleccionados</span>
+              <span className="font-semibold">{L(residencialesTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>Total mensual (móvil + residencial + equipos)</span>
+              <span className="font-bold">{L(totalSinEquipo)}</span>
+            </div>
+          </div>
+        </section>
+
+        <footer className={`py-10 text-center text-xs ${subtle} print:hidden`}>
+          Construido para INCOFEMAR — persiste con localStorage. Datos en L con ISV.
+        </footer>
+      </div>
+
+      <style>{`
+        @page { size: A4 landscape; margin: 8mm; }
+        @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          button, select, .print\:hidden { display: none !important; }
+          html, body { height: auto !important; overflow: visible !important; }
+          .mx-auto { max-width: 100% !important; }
+          .p-4 { padding: 6px !important; }
+          .p-5 { padding: 8px !important; }
+          .mb-6 { margin-bottom: 6px !important; }
+          .gap-4 { gap: 6px !important; }
+          .h-64 { height: 150px !important; }
+          section { page-break-inside: avoid; }
+          body { background: white; }
+        }
+      `}</style>
+    </div>
+  );
+}
