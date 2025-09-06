@@ -7320,6 +7320,8 @@ function IncofemarComparativa() {
   const [dragId, setDragId] = (0, import_react.useState)(null);
   const [undo, setUndo] = (0, import_react.useState)(null);
   const [undoTimerId, setUndoTimerId] = (0, import_react.useState)(null);
+  const undoIntervalId = import_react.default.useRef(null);
+  const [undoCountdown, setUndoCountdown] = (0, import_react.useState)(0);
   const REPO_INFO = { owner: "diegocantarero", repo: "INCOFEMAR", branch: "main", statePath: "state.json" };
   function snapshotState() {
     return { people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson };
@@ -7361,8 +7363,23 @@ function IncofemarComparativa() {
   }
   function showUndo(kind, item, restore) {
     if (undoTimerId) clearTimeout(undoTimerId);
+    if (undoIntervalId.current) clearInterval(undoIntervalId.current);
     setUndo({ kind, item, restore });
-    const t = setTimeout(() => setUndo(null), 1e4);
+    setUndoCountdown(10);
+    undoIntervalId.current = setInterval(() => {
+      setUndoCountdown((n) => {
+        if (n <= 1) {
+          clearInterval(undoIntervalId.current);
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1e3);
+    const t = setTimeout(() => {
+      setUndo(null);
+      if (undoIntervalId.current) clearInterval(undoIntervalId.current);
+      setUndoCountdown(0);
+    }, 1e4);
     setUndoTimerId(t);
   }
   (0, import_react.useEffect)(() => {
@@ -7645,24 +7662,29 @@ function IncofemarComparativa() {
           ] })
         ] })
       ] }),
-      undo && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "fixed bottom-4 right-4 z-50 rounded-xl bg-amber-50 text-amber-900 shadow-lg ring-1 ring-amber-300 px-4 py-3 max-w-md", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-3", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: "Acci\xF3n disponible para deshacer" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
-            "button",
-            {
-              type: "button",
-              onClick: () => {
-                undo.restore();
-                setUndo(null);
-              },
-              className: "rounded-lg bg-amber-600 text-white px-3 py-1 text-sm hover:bg-amber-700",
-              children: "Restaurar"
-            }
-          )
+      undo && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "fixed bottom-4 right-4 z-50 rounded-xl bg-amber-50 text-amber-900 shadow-lg ring-1 ring-amber-300 px-4 py-3 max-w-md", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center gap-3", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("strong", { children: "Acci\xF3n disponible para deshacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", { className: "text-xs opacity-80", children: [
+          "Se cierra en ",
+          undoCountdown,
+          "s"
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-xs mt-1 opacity-80", children: "Este aviso se cierra autom\xE1ticamente en 10s." })
-      ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "button",
+          {
+            type: "button",
+            onClick: () => {
+              if (undoIntervalId.current) clearInterval(undoIntervalId.current);
+              if (undoTimerId) clearTimeout(undoTimerId);
+              setUndo(null);
+              setUndoCountdown(0);
+              undo.restore();
+            },
+            className: "rounded-lg bg-amber-600 text-white px-3 py-1 text-sm hover:bg-amber-700",
+            children: "Restaurar"
+          }
+        )
+      ] }) }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("section", { className: `${card} mt-6 rounded-2xl p-5 shadow-sm`, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: "text-lg font-semibold", children: "Directorio y plan por l\xEDnea" }),
         /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "overflow-x-auto mt-2", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", { className: "min-w-full border-separate border-spacing-y-2 text-sm", children: [

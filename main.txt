@@ -155,6 +155,8 @@ export default function IncofemarComparativa() {
   // Persistencia remota (GitHub) y Undo (10s)
   const [undo, setUndo] = useState<any>(null);
   const [undoTimerId, setUndoTimerId] = useState<any>(null);
+  const undoIntervalId = React.useRef<any>(null);
+  const [undoCountdown, setUndoCountdown] = useState(0);
   const REPO_INFO = { owner: "diegocantarero", repo: "INCOFEMAR", branch: "main", statePath: "state.json" };
 
   function snapshotState() {
@@ -195,8 +197,24 @@ export default function IncofemarComparativa() {
 
   function showUndo(kind: "person" | "branch", item: any, restore: () => void) {
     if (undoTimerId) clearTimeout(undoTimerId as any);
+    if (undoIntervalId.current) clearInterval(undoIntervalId.current as any);
     setUndo({ kind, item, restore });
-    const t = setTimeout(() => setUndo(null), 10000);
+    setUndoCountdown(10);
+    // Intervalo de 1s para countdown visible
+    undoIntervalId.current = setInterval(() => {
+      setUndoCountdown((n) => {
+        if (n <= 1) {
+          clearInterval(undoIntervalId.current as any);
+          return 0;
+        }
+        return n - 1;
+      });
+    }, 1000);
+    const t = setTimeout(() => {
+      setUndo(null);
+      if (undoIntervalId.current) clearInterval(undoIntervalId.current as any);
+      setUndoCountdown(0);
+    }, 10000);
     setUndoTimerId(t);
   }
 
@@ -497,15 +515,15 @@ export default function IncofemarComparativa() {
           <div className="fixed bottom-4 right-4 z-50 rounded-xl bg-amber-50 text-amber-900 shadow-lg ring-1 ring-amber-300 px-4 py-3 max-w-md">
             <div className="flex items-center gap-3">
               <strong>Acción disponible para deshacer</strong>
+              <span className="text-xs opacity-80">Se cierra en {undoCountdown}s</span>
               <button
                 type="button"
-                onClick={() => { undo.restore(); setUndo(null); }}
+                onClick={() => { if (undoIntervalId.current) clearInterval(undoIntervalId.current as any); if (undoTimerId) clearTimeout(undoTimerId as any); setUndo(null); setUndoCountdown(0); undo.restore(); }}
                 className="rounded-lg bg-amber-600 text-white px-3 py-1 text-sm hover:bg-amber-700"
               >
                 Restaurar
               </button>
             </div>
-            <div className="text-xs mt-1 opacity-80">Este aviso se cierra automáticamente en 10s.</div>
           </div>
         )}
 
