@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
+import postpagoB64 from "./assets/postpago.b64.txt?raw";
 
 // Helpers
 const L = (n: number | string) => `L${Number(n).toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const round2 = (n: number | string) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const postpagoDataUrl = `data:image/png;base64,${postpagoB64}`;
 
 function SmartImg({ srcs, alt, className }: { srcs: string[]; alt?: string; className?: string }) {
   const [i, setI] = React.useState(0);
@@ -526,29 +528,18 @@ export default function IncofemarComparativa() {
         </section>
 
         <section className={`${card} mt-4 rounded-2xl p-4 shadow-sm`}>
-          <h2 className="text-lg font-semibold">Referencia de planes empresariales (tabla)</h2>
-          <div className="mt-2">
-            <SmartImg
-              srcs={[
-                "/assets/Postpago.png",
-                "/Postpago.png",
-                "/assets/postpago.png",
-                "/postpago.png",
-                "sandbox:/mnt/data/Postpago.png",
-                "sandbox:/mnt/data/Postpago.png?v=1",
-                "sandbox:/mnt/data/postpago.png",
-                "sandbox:/mnt/data/postpago.png?v=1",
-                "sandbox:/mnt/data/Postpago.jpg",
-                "sandbox:/mnt/data/Postpago.jpg?v=1",
-                "sandbox:/mnt/data/Postpago.jpeg",
-                "sandbox:/mnt/data/Postpago.jpeg?v=1"
-              ]}
-              alt="Tabla de planes Business"
-              className="w-full rounded-xl border"
-            />
-            <p className={`mt-2 text-xs ${subtle}`}>Imagen adjunta como apoyo visual. Si no carga, haz clic derecho → abrir en pestaña nueva.</p>
-          </div>
-        </section>
+            <h2 className="text-lg font-semibold">Referencia de planes empresariales (tabla)</h2>
+            <div className="mt-2">
+              <SmartImg
+                srcs={[postpagoDataUrl]}
+                alt="Tabla de planes Business"
+                className="w-full rounded-xl border"
+              />
+              <p className={`mt-2 text-xs ${subtle}`}>
+                Imagen adjunta como apoyo visual. Si no carga, haz clic derecho → abrir en pestaña nueva.
+              </p>
+            </div>
+          </section>
 
         <section className="mt-6 grid gap-4">
           <div className={`${card} rounded-2xl p-4 shadow-sm`}>
