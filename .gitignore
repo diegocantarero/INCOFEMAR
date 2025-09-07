@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# macOS
+.DS_Store
+
+# Builds / outputs
+/dist/
+/build/
+/.cache/
+/.next/
+/out/
+
+# Local scripts/artifacts
+shell-scripts/logs/
+shell-scripts/state/
+shell-scripts/backups/
+
+# Env
+.env
+.env.*
+
+# Misc
+*.pid
+

@@ -655,18 +655,12 @@ export default function IncofemarComparativa() {
           <div className="mt-2">
             <SmartImg
               srcs={[
-                "/assets/Postpago.png",
-                "/Postpago.png",
-                "/assets/postpago.png",
-                "/postpago.png",
-                "sandbox:/mnt/data/Postpago.png",
-                "sandbox:/mnt/data/Postpago.png?v=1",
-                "sandbox:/mnt/data/postpago.png",
-                "sandbox:/mnt/data/postpago.png?v=1",
-                "sandbox:/mnt/data/Postpago.jpg",
-                "sandbox:/mnt/data/Postpago.jpg?v=1",
-                "sandbox:/mnt/data/Postpago.jpeg",
-                "sandbox:/mnt/data/Postpago.jpeg?v=1"
+                "assets/Postpago.png",
+                "assets/postpago.png",
+                "Postpago.png",
+                "postpago.png",
+                "/INCOFEMAR/assets/Postpago.png",
+                "/INCOFEMAR/assets/postpago.png"
               ]}
               alt="Tabla de planes Business"
               className="w-full rounded-xl border"
