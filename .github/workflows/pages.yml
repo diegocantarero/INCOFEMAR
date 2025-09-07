@@ -45,7 +45,14 @@ jobs:
           <link rel="icon" href="./assets/Postpago.png">
           </head><body><div id="app"></div><script type="module" src="./main.js"></script></body></html>
           HTML
+          # Pages-friendly extras
+          touch dist/.nojekyll
+          cp dist/index.html dist/404.html
+          
+          # Static assets
           if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
+          
+          # Minimal state file (if missing)
           if [ ! -f state.json ]; then echo '{}' > state.json; fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
