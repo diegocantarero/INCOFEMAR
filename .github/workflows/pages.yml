@@ -53,6 +53,9 @@ jobs:
           # Static assets
           if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
           
+          # If docs/main.js exists (prebuilt), prefer it to ensure visibility of latest app bundle
+          if [ -f docs/main.js ]; then cp docs/main.js dist/main.js; fi
+          
           # Minimal state file (if missing)
           if [ ! -f state.json ]; then echo '{}' > state.json; fi
       - name: Upload artifact
