@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { initFirebase } from "./shell-scripts/code/firebase_client";
 
 // Helpers
 const L = (n: number | string) => `L${Number(n).toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -150,6 +151,7 @@ export default function IncofemarComparativa() {
   const [planByPerson, setPlanByPerson] = useState<Record<string, PlanTier>>({});
   const [contactsByPerson, setContactsByPerson] = useState<Record<string, { phone: string; operator: string }>>({});
   const [hydrated, setHydrated] = useState(false);
+  const [FB_READY, setFB_READY] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
 
   // Persistencia remota (GitHub) y Undo (10s)
@@ -218,9 +220,35 @@ export default function IncofemarComparativa() {
     setUndoTimerId(t);
   }
 
-  // Hydrate (1º remoto state.json, 2º localStorage)
+  // Hydrate (Firestore live sync if configured) + fallback (remote JSON -> localStorage)
   useEffect(() => {
     (async () => {
+      // 1) Firestore live sync (optional, only if FB_CONFIG is provided)
+      try {
+        if ((window as any).FB_CONFIG?.apiKey) {
+          const { save, subscribe } = await initFirebase();
+          // Realtime subscription
+          subscribe((r: any) => {
+            try {
+              if (r.people) setPeople(r.people);
+              if (r.dark != null) setDark(r.dark);
+              if (Array.isArray(r.branches)) setBranches(r.branches);
+              if (r.mobilePlan) setMobilePlan(r.mobilePlan);
+              if (r.devicesByPerson) setDevicesByPerson(r.devicesByPerson);
+              if (r.planByPerson) setPlanByPerson(r.planByPerson);
+              if (r.contactsByPerson) setContactsByPerson(r.contactsByPerson);
+            } catch {}
+          });
+          // Debounced remote save helper
+          (window as any).__SAM_SAVE__ = ((fn: any, ms = 700) => {
+            let t: any;
+            return (...args: any[]) => { if (t) clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+          })((snap: any) => save(snap), 700);
+          setFB_READY(true);
+        }
+      } catch (e) { console.warn("FB init", e); }
+
+      // 2) Remote JSON (GitHub raw) hydration
       let loaded = false;
       try {
         const url = "https://raw.githubusercontent.com/diegocantarero/INCOFEMAR/main/state.json?cb=" + Date.now();
@@ -237,6 +265,8 @@ export default function IncofemarComparativa() {
           loaded = true;
         }
       } catch {}
+
+      // 3) LocalStorage fallback (with minor normalization)
       if (!loaded) {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
@@ -249,9 +279,8 @@ export default function IncofemarComparativa() {
                 const nm = String(b.name || "").trim();
                 const lower = nm.toLowerCase();
                 let fixed = nm;
-                if (lower.startsWith("casa ")) fixed = "Residencia " + nm.slice(5);
-                if (lower.startsWith("residencail ")) fixed = "Residencia " + nm.slice(11);
-                if (lower.startsWith("residencial ")) fixed = "Residencia " + nm.slice(11);
+                if (lower.startsWith("casa ")) fixed = "Residencial " + nm.slice(5);
+                if (lower.startsWith("residencail ")) fixed = "Residencial " + nm.slice(11);
                 return { ...b, name: fixed };
               });
               setBranches(normalized);
@@ -265,6 +294,7 @@ export default function IncofemarComparativa() {
       }
       setHydrated(true);
     })();
+  }, []);
   }, []);
 
   // Defaults after hydration + asegurar nombres base presentes y datos por persona
@@ -336,15 +366,16 @@ export default function IncofemarComparativa() {
     });
   }, [hydrated, people]);
 
-  // Persist: localStorage + (si hay token) GitHub
+  // Persist: localStorage + (si hay token) GitHub + (si hay Firebase) Firestore
   useEffect(() => {
     if (!hydrated) return;
     try {
       const snapshot = snapshotState();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
       enqueueSaveRemote();
+      try { if (FB_READY && (window as any).__SAM_SAVE__) (window as any).__SAM_SAVE__(snapshot); } catch {}
     } catch {}
-  }, [hydrated, people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson]);
+  }, [hydrated, people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson, FB_READY]);
 
   const lines = people.length;
 

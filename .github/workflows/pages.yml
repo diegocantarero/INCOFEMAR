@@ -19,9 +19,8 @@ jobs:
         with: { node-version: '18' }
       - name: Install deps
         run: |
-          npm ci || true
-          npm i react@18 react-dom@18 || true
-          npm i -D esbuild || true
+          npm i react@18 react-dom@18
+          npm i -D esbuild firebase
       - name: Build
         run: |
           mkdir -p shell-scripts/code
@@ -32,32 +31,33 @@ jobs:
           function ensureAppRoot(){ let el=document.getElementById("app"); if(!el){ el=document.createElement("div"); el.id="app"; document.body.appendChild(el);} return el as HTMLElement; }
           createRoot(ensureAppRoot()).render(React.createElement(App));
           TSX
-          OUTJS="main.js"
+          BUST=$(date +%s)
           npx esbuild shell-scripts/code/mount_entry.tsx \
             --bundle --format=esm --platform=browser --target=es2018 \
             --sourcemap --jsx=automatic --loader:.txt=tsx \
             --define:process.env.NODE_ENV="production" \
-            --outfile="dist/${OUTJS}"
-          cat > dist/index.html <<'HTML'
+            --outfile=dist/main.js
+          cat > dist/index.html <<HTML
           <!doctype html><html lang="es"><head>
           <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
           <title>INCOFEMAR · Comparativa</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link rel="icon" href="./assets/Postpago.png">
-          </head><body><div id="app"></div><script type="module" src="./main.js"></script></body></html>
+          <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+          <meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/>
+          </head><body>
+          <div id="app"></div>
+          <script src="./firebase-config.js?v=${BUST}"></script>
+          <script type="module" src="./main.js?v=${BUST}"></script>
+          </body></html>
           HTML
+          # Ensure firebase config placeholder exists
+          if [ ! -f dist/firebase-config.js ]; then echo 'window.FB_CONFIG={};' > dist/firebase-config.js; fi
+          # Static assets
+          if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
           # Pages-friendly extras
           touch dist/.nojekyll
           cp dist/index.html dist/404.html
-          
-          # Static assets
-          if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
-          
-          # If docs/main.js exists (prebuilt), prefer it to ensure visibility of latest app bundle
-          if [ -f docs/main.js ]; then cp docs/main.js dist/main.js; fi
-          
-          # Minimal state file (if missing)
-          if [ ! -f state.json ]; then echo '{}' > state.json; fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with: { path: dist }
@@ -66,6 +66,10 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
