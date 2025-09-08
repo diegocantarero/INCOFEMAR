@@ -46,7 +46,7 @@ const TIGO_PER_LINE = 510;
 const A16_MONTHLY = 532.13;
 const TAB_A9_MONTHLY_50 = 515.26;
 
-// Internet residencial
+// Internet de residencia
 const INTERNET_MAP: Record<string, { key: string; price: number }[]> = {
   Claro: [
     { key: "GPON 500 MB + TV", price: 1375.00003 },
@@ -79,7 +79,7 @@ const INITIAL_PEOPLE: Person[] = [
   { id: makeId(), name: "Estela" },
 ];
 
-// Residenciales
+// Residencias
 type Branch = { id: string; name: string; provider: keyof typeof INTERNET_MAP; planKey: string };
 const INITIAL_BRANCHES: Branch[] = [
   { id: makeId(), name: "Residencia Francis", provider: "Claro", planKey: "GPON 500 MB" },
@@ -357,13 +357,13 @@ export default function IncofemarComparativa() {
   const ahorroClaroEmp = round2(actualMonthly - claroEmpMonthly);
   const ahorroTigo = round2(actualMonthly - tigoMonthly);
 
-  // Residenciales
+  // Residencias
   const branchTotals = branches.map((b) => {
     const list = INTERNET_MAP[b.provider] || INTERNET_MAP["Claro"];
     const plan = list.find((p) => p.key === b.planKey) || list[0];
     return { id: b.id, name: b.name, provider: b.provider, planKey: plan.key, price: round2(plan.price || 0) };
   });
-  const residencialesTotal = round2(branchTotals.reduce((a, c) => a + c.price, 0));
+  const residenciaTotal = round2(branchTotals.reduce((a, c) => a + c.price, 0));
 
   // Directorio calculado
   const directoryRows = useMemo(() => {
@@ -398,7 +398,7 @@ export default function IncofemarComparativa() {
   const directoryTotalsSum = useMemo(() => round2(directoryRows.reduce((a, r) => a + ((r as any).total || 0), 0)), [directoryRows]);
   const financeTotalsSum = useMemo(() => round2(directoryRows.reduce((a, r) => a + ((r as any).finance || 0), 0)), [directoryRows]);
 
-  const totalSinEquipo = round2(directoryTotalsSum + residencialesTotal);
+  const totalSinEquipo = round2(directoryTotalsSum + residenciaTotal);
 
   const addPerson = useCallback(() => {
     const id = makeId();
@@ -740,7 +740,7 @@ export default function IncofemarComparativa() {
               })}
               <div className="grid grid-cols-1 md:grid-cols-6 items-center gap-2 border-t pt-2">
                 <div className="md:col-span-5 text-right font-bold">Total residencia</div>
-                <div className="text-right font-extrabold">{L(residencialesTotal)}</div>
+                <div className="text-right font-extrabold">{L(residenciaTotal)}</div>
               </div>
             </div>
           </div>
@@ -764,7 +764,7 @@ export default function IncofemarComparativa() {
             </div>
             <div className="flex items-center justify-between">
               <span>Servicios de residencia seleccionados</span>
-              <span className="font-semibold">{L(residencialesTotal)}</span>
+              <span className="font-semibold">{L(residenciaTotal)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span>Total mensual (móvil + residencia + equipos)</span>
