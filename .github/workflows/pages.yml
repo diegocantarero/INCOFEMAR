@@ -35,7 +35,7 @@ jobs:
           npx esbuild shell-scripts/code/mount_entry.tsx \
             --bundle --format=esm --platform=browser --target=es2018 \
             --sourcemap --jsx=automatic --loader:.txt=tsx \
-            --define:process.env.NODE_ENV="production" \
+            --define:process.env.NODE_ENV='"production"' \
             --outfile=dist/main.js
           cat > dist/index.html <<HTML
           <!doctype html><html lang="es"><head>

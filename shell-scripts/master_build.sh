@@ -76,7 +76,7 @@ npx --yes esbuild "$ENTRY" \
   --sourcemap \
   --jsx=automatic \
   --loader:.txt=tsx \
-  --define:process.env.NODE_ENV=\"production\" \
+  --define:process.env.NODE_ENV='"production"' \
   --outfile="dist/${OUTJS}" >>"$BUILDLOG" 2>>"$ERR" || { fail "esbuild falló (ver $BUILDLOG)"; }
 
 ls -lh dist/ | tee -a "$RUN"
