@@ -81,7 +81,8 @@ npx --yes esbuild "$ENTRY" \
 
 ls -lh dist/ | tee -a "$RUN"
 
-# === index.html con Tailwind CDN ===
+# === index.html con Tailwind CDN + cache-bust + firebase-config ===
+BUST="$(date +%s)"
 cat > dist/index.html <<HTML
 <!doctype html>
 <html lang="es">
@@ -91,6 +92,8 @@ cat > dist/index.html <<HTML
   <title>INCOFEMAR · Comparativa</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="icon" href="./assets/Postpago.png">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/><meta http-equiv="Expires" content="0"/>
   <style>
     :root{--c:#0e5fd8} body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.5;margin:0;background:#0b1020;color:#f5f7fb}
     #app{min-height:100vh}
@@ -99,10 +102,26 @@ cat > dist/index.html <<HTML
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="./${OUTJS}"></script>
+  <script src="./firebase-config.js?v=${BUST}"></script>
+  <script type="module" src="./main.js?v=${BUST}"></script>
 </body>
 </html>
 HTML
+
+# firebase-config placeholder (si no existe)
+if [[ ! -f dist/firebase-config.js ]]; then
+  cat > dist/firebase-config.js <<'JS'
+// Pega aquí tu config Firebase Web:
+window.FB_CONFIG = {
+  // apiKey: "...",
+  // authDomain: "...",
+  // projectId: "...",
+  // storageBucket: "...",
+  // messagingSenderId: "...",
+  // appId: "..."
+};
+JS
+fi
 
 # === Copiar assets/ → dist/assets/ ===
 if [[ -d assets ]]; then
