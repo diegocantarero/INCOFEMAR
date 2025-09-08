@@ -65,6 +65,7 @@ TSX
 # === Build con esbuild (bundle completo, ESM, target es2018) ===
 mkdir -p dist
 BUILDLOG="$ART/logs/esbuild_$(date +%Y%m%d_%H%M%S).log"
+BUST="$(date +%s)"
 OUTJS="main.${BUST}.js"
 say "Compilando TSX → dist/${OUTJS} …"
 npx --yes esbuild "$ENTRY" \
@@ -81,7 +82,6 @@ npx --yes esbuild "$ENTRY" \
 ls -lh dist/ | tee -a "$RUN"
 
 # === index.html con Tailwind CDN ===
-BUST="$(date +%s)"
 cat > dist/index.html <<HTML
 <!doctype html>
 <html lang="es">
