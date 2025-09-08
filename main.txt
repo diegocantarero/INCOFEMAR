@@ -120,7 +120,7 @@ function buildDefaultDevices(peopleArr: Person[]) {
   const map: Record<string, DeviceKey[]> = {};
   const am = byName("Amilcar"); if (am) map[am.id] = ["Galaxy A16"];
   const al = byName("Alfredo"); if (al) map[al.id] = ["Galaxy A16"];
-  const es = byName("Estela"); if (es) map[es.id] = ["Samsung Tab A9"];
+  const fr = byName("Francis"); if (fr) map[fr.id] = ["Samsung Tab A9"];
   return map;
 }
 
@@ -328,7 +328,7 @@ export default function IncofemarComparativa() {
         const has = Array.isArray(next[p.id]) && next[p.id].length > 0;
         if (!has) {
           if (nm === "amilcar" || nm === "alfredo") { next[p.id] = ["Galaxy A16"]; changed = true; }
-          else if (nm === "estela") { next[p.id] = ["Samsung Tab A9"]; changed = true; }
+          else if (nm === "francis") { next[p.id] = ["Samsung Tab A9"]; changed = true; }
         }
       }
       return changed ? next : prev;
