@@ -37,13 +37,13 @@ jobs:
             --sourcemap --jsx=automatic --loader:.txt=tsx \
             --define:process.env.NODE_ENV="production" \
             --outfile=dist/main.js
-          cat > dist/index.html <<'HTML'
+          cat > dist/index.html <<HTML
           <!doctype html><html lang="es"><head>
           <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
           <title>INCOFEMAR · Comparativa</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <link rel="icon" href="./assets/Postpago.png">
-          </head><body><div id="app"></div><script type="module" src="./main.js"></script></body></html>
+          </head><body><div id="app"></div><script type="module" src="./main.js?v=${GITHUB_SHA}"></script></body></html>
           HTML
           # Pages-friendly extras
           touch dist/.nojekyll

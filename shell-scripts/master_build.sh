@@ -80,7 +80,8 @@ npx --yes esbuild "$ENTRY" \
 [[ -s dist/main.js ]] || { fail "No se generó dist/main.js"; exit 1; }
 
 # === index.html con Tailwind CDN ===
-cat > dist/index.html <<'HTML'
+BUST="$(date +%s)"
+cat > dist/index.html <<HTML
 <!doctype html>
 <html lang="es">
 <head>
@@ -97,7 +98,7 @@ cat > dist/index.html <<'HTML'
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="./main.js"></script>
+  <script type="module" src="./main.js?v=${BUST}"></script>
 </body>
 </html>
 HTML

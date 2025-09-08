@@ -43,7 +43,7 @@ Big-picture architecture details (for faster productivity)
 - main.txt (TSX treated via esbuild):
   - Constants define per-line plan pricing (with/without ISV) and a map of residential internet offerings for Claro/Tigo.
   - Types: Person, Branch, PlanTier, DeviceKey. Defaults are seeded for people and branches.
-  - Derived computations: directoryRows (per-person costs including financed devices and ISV), branchTotals/residencialesTotal, directoryTotalsSum, financeTotalsSum, totalSinEquipo. Currency formatting helper L() formats to Lempiras.
+  - Derived computations: directoryRows (per-person costs including financed devices and ISV), branchTotals/residenciaTotal, directoryTotalsSum, financeTotalsSum, totalSinEquipo. Currency formatting helper L() formats to Lempiras.
   - Persistence: localStorage key STORAGE_KEY = "incofemar_comp_vs_v6". Remote persistence uses window.GH_TOKEN or localStorage.GH_TOKEN to PUT state.json (content base64) to the repo via GitHub API (reads current sha first).
   - UI: Tailwind utility classes, drag-and-drop row reordering, device/plan selectors, residential plan selectors, theme toggle, print button (Ctrl+P tooltip), and print-specific CSS (A4 landscape, hide interactive UI when printing).
   - SmartImg: resilient image loader that falls back across multiple candidate paths, with <object> fallback if loading fails.
