@@ -82,9 +82,9 @@ const INITIAL_PEOPLE: Person[] = [
 // Residenciales
 type Branch = { id: string; name: string; provider: keyof typeof INTERNET_MAP; planKey: string };
 const INITIAL_BRANCHES: Branch[] = [
-  { id: makeId(), name: "Residencial Francis", provider: "Claro", planKey: "GPON 330 MB + TV" },
-  { id: makeId(), name: "Residencial Amilcar", provider: "Claro", planKey: "GPON 130 MB + TV" },
-  { id: makeId(), name: "Residencial Angela", provider: "Claro", planKey: "TV" },
+  { id: makeId(), name: "Residencia Francis", provider: "Claro", planKey: "GPON 500 MB" },
+  { id: makeId(), name: "Residencia Amilcar", provider: "Claro", planKey: "GPON 130 MB + TV" },
+  { id: makeId(), name: "Residencia Angela", provider: "Claro", planKey: "TV" },
 ];
 
 // Dispositivos financiados
@@ -249,8 +249,9 @@ export default function IncofemarComparativa() {
                 const nm = String(b.name || "").trim();
                 const lower = nm.toLowerCase();
                 let fixed = nm;
-                if (lower.startsWith("casa ")) fixed = "Residencial " + nm.slice(5);
-                if (lower.startsWith("residencail ")) fixed = "Residencial " + nm.slice(11);
+                if (lower.startsWith("casa ")) fixed = "Residencia " + nm.slice(5);
+                if (lower.startsWith("residencail ")) fixed = "Residencia " + nm.slice(11);
+                if (lower.startsWith("residencial ")) fixed = "Residencia " + nm.slice(11);
                 return { ...b, name: fixed };
               });
               setBranches(normalized);
@@ -671,13 +672,13 @@ export default function IncofemarComparativa() {
         <section className="mt-6 grid gap-4">
           <div className={`${card} rounded-2xl p-4 shadow-sm`}>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className={`text-base font-bold ${subtle}`}>Servicios residenciales por ubicación</h2>
+              <h2 className={`text-base font-bold ${subtle}`}>Servicios de residencia por ubicación</h2>
               <button
                 type="button"
-                onClick={() => setBranches((prev) => [...prev, { id: makeId(), name: `Residencial ${prev.length + 1}`, provider: "Claro", planKey: INTERNET_MAP["Claro"][0].key }])}
+                onClick={() => setBranches((prev) => [...prev, { id: makeId(), name: `Residencia ${prev.length + 1}`, provider: "Claro", planKey: INTERNET_MAP["Claro"][0].key }])}
                 className="rounded-2xl px-3 py-1.5 ring-1 ring-neutral-300 hover:bg-neutral-50"
               >
-                Añadir residencial
+                Añadir residencia
               </button>
             </div>
             <div className="space-y-3">
@@ -726,7 +727,7 @@ export default function IncofemarComparativa() {
                         type="button"
                         onClick={() => removeBranch(b.id)}
                         className="rounded-xl p-2 ring-1 ring-rose-300 text-rose-600 hover:bg-rose-50"
-                        aria-label="Eliminar residencial"
+                        aria-label="Eliminar residencia"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                           <path d="M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1zm-3 6h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm5 2v8h2v-8H8z" />
@@ -738,7 +739,7 @@ export default function IncofemarComparativa() {
                 );
               })}
               <div className="grid grid-cols-1 md:grid-cols-6 items-center gap-2 border-t pt-2">
-                <div className="md:col-span-5 text-right font-bold">Total residencial</div>
+                <div className="md:col-span-5 text-right font-bold">Total residencia</div>
                 <div className="text-right font-extrabold">{L(residencialesTotal)}</div>
               </div>
             </div>
@@ -762,11 +763,11 @@ export default function IncofemarComparativa() {
               <span className="font-semibold">{L(directoryTotalsSum)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Servicios residenciales seleccionados</span>
+              <span>Servicios de residencia seleccionados</span>
               <span className="font-semibold">{L(residencialesTotal)}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span>Total mensual (móvil + residencial + equipos)</span>
+              <span>Total mensual (móvil + residencia + equipos)</span>
               <span className="font-bold">{L(totalSinEquipo)}</span>
             </div>
           </div>
