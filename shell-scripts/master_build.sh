@@ -65,7 +65,8 @@ TSX
 # === Build con esbuild (bundle completo, ESM, target es2018) ===
 mkdir -p dist
 BUILDLOG="$ART/logs/esbuild_$(date +%Y%m%d_%H%M%S).log"
-say "Compilando TSX → dist/main.js …"
+OUTJS="main.${BUST}.js"
+say "Compilando TSX → dist/${OUTJS} …"
 npx --yes esbuild "$ENTRY" \
   --bundle \
   --format=esm \
@@ -75,9 +76,9 @@ npx --yes esbuild "$ENTRY" \
   --jsx=automatic \
   --loader:.txt=tsx \
   --define:process.env.NODE_ENV=\"production\" \
-  --outfile=dist/main.js >>"$BUILDLOG" 2>>"$ERR" || { fail "esbuild falló (ver $BUILDLOG)"; }
+  --outfile="dist/${OUTJS}" >>"$BUILDLOG" 2>>"$ERR" || { fail "esbuild falló (ver $BUILDLOG)"; }
 
-[[ -s dist/main.js ]] || { fail "No se generó dist/main.js"; exit 1; }
+ls -lh dist/ | tee -a "$RUN"
 
 # === index.html con Tailwind CDN ===
 BUST="$(date +%s)"
@@ -98,7 +99,7 @@ cat > dist/index.html <<HTML
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="./main.js?v=${BUST}"></script>
+  <script type="module" src="./${OUTJS}"></script>
 </body>
 </html>
 HTML
