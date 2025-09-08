@@ -7289,8 +7289,8 @@ function buildDefaultDevices(peopleArr) {
   if (am) map[am.id] = ["Galaxy A16"];
   const al = byName("Alfredo");
   if (al) map[al.id] = ["Galaxy A16"];
-  const es = byName("Estela");
-  if (es) map[es.id] = ["Samsung Tab A9"];
+  const fr = byName("Francis");
+  if (fr) map[fr.id] = ["Samsung Tab A9"];
   return map;
 }
 function buildDefaultPlans(peopleArr) {
@@ -7413,8 +7413,9 @@ function IncofemarComparativa() {
                 const nm = String(b.name || "").trim();
                 const lower = nm.toLowerCase();
                 let fixed = nm;
-                if (lower.startsWith("casa ")) fixed = "Residencial " + nm.slice(5);
-                if (lower.startsWith("residencail ")) fixed = "Residencial " + nm.slice(11);
+                if (lower.startsWith("casa ")) fixed = "Residencia " + nm.slice(5);
+                if (lower.startsWith("residencail ")) fixed = "Residencia " + nm.slice(11);
+                if (lower.startsWith("residencial ")) fixed = "Residencia " + nm.slice(11);
                 return { ...b, name: fixed };
               });
               setBranches(normalized);
@@ -7485,7 +7486,7 @@ function IncofemarComparativa() {
           if (nm === "amilcar" || nm === "alfredo") {
             next[p.id] = ["Galaxy A16"];
             changed = true;
-          } else if (nm === "estela") {
+          } else if (nm === "francis") {
             next[p.id] = ["Samsung Tab A9"];
             changed = true;
           }
@@ -7516,7 +7517,7 @@ function IncofemarComparativa() {
     const plan = list.find((p) => p.key === b.planKey) || list[0];
     return { id: b.id, name: b.name, provider: b.provider, planKey: plan.key, price: round2(plan.price || 0) };
   });
-  const residencialesTotal = round2(branchTotals.reduce((a, c) => a + c.price, 0));
+  const residenciaTotal = round2(branchTotals.reduce((a, c) => a + c.price, 0));
   const directoryRows = (0, import_react.useMemo)(() => {
     return people.map((p) => {
       var _a;
@@ -7548,7 +7549,7 @@ function IncofemarComparativa() {
   }, [people, devicesByPerson, planByPerson, contactsByPerson]);
   const directoryTotalsSum = (0, import_react.useMemo)(() => round2(directoryRows.reduce((a, r) => a + (r.total || 0), 0)), [directoryRows]);
   const financeTotalsSum = (0, import_react.useMemo)(() => round2(directoryRows.reduce((a, r) => a + (r.finance || 0), 0)), [directoryRows]);
-  const totalSinEquipo = round2(directoryTotalsSum + residencialesTotal);
+  const totalSinEquipo = round2(directoryTotalsSum + residenciaTotal);
   const addPerson = (0, import_react.useCallback)(() => {
     const id = makeId();
     setPeople((prev) => {
@@ -7819,18 +7820,12 @@ function IncofemarComparativa() {
           SmartImg,
           {
             srcs: [
-              "/assets/Postpago.png",
-              "/Postpago.png",
-              "/assets/postpago.png",
-              "/postpago.png",
-              "sandbox:/mnt/data/Postpago.png",
-              "sandbox:/mnt/data/Postpago.png?v=1",
-              "sandbox:/mnt/data/postpago.png",
-              "sandbox:/mnt/data/postpago.png?v=1",
-              "sandbox:/mnt/data/Postpago.jpg",
-              "sandbox:/mnt/data/Postpago.jpg?v=1",
-              "sandbox:/mnt/data/Postpago.jpeg",
-              "sandbox:/mnt/data/Postpago.jpeg?v=1"
+              "assets/Postpago.png",
+              "assets/postpago.png",
+              "Postpago.png",
+              "postpago.png",
+              "/INCOFEMAR/assets/Postpago.png",
+              "/INCOFEMAR/assets/postpago.png"
             ],
             alt: "Tabla de planes Business",
             className: "w-full rounded-xl border"
@@ -7839,14 +7834,14 @@ function IncofemarComparativa() {
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("section", { className: "mt-6 grid gap-4", children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: `${card} rounded-2xl p-4 shadow-sm`, children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "mb-3 flex items-center justify-between", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: `text-base font-bold ${subtle}`, children: "Servicios residenciales por ubicaci\xF3n" }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", { className: `text-base font-bold ${subtle}`, children: "Servicios de residencia por ubicaci\xF3n" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
             "button",
             {
               type: "button",
-              onClick: () => setBranches((prev) => [...prev, { id: makeId(), name: `Residencial ${prev.length + 1}`, provider: "Claro", planKey: INTERNET_MAP["Claro"][0].key }]),
+              onClick: () => setBranches((prev) => [...prev, { id: makeId(), name: `Residencia ${prev.length + 1}`, provider: "Claro", planKey: INTERNET_MAP["Claro"][0].key }]),
               className: "rounded-2xl px-3 py-1.5 ring-1 ring-neutral-300 hover:bg-neutral-50",
-              children: "A\xF1adir residencial"
+              children: "A\xF1adir residencia"
             }
           )
         ] }),
@@ -7902,7 +7897,7 @@ function IncofemarComparativa() {
                     type: "button",
                     onClick: () => removeBranch(b.id),
                     className: "rounded-xl p-2 ring-1 ring-rose-300 text-rose-600 hover:bg-rose-50",
-                    "aria-label": "Eliminar residencial",
+                    "aria-label": "Eliminar residencia",
                     children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("svg", { xmlns: "http://www.w3.org/2000/svg", viewBox: "0 0 24 24", fill: "currentColor", className: "h-5 w-5", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: "M9 3h6a1 1 0 0 1 1 1v1h4v2H4V5h4V4a1 1 0 0 1 1-1zm-3 6h12l-1 11a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 9zm5 2v8h2v-8H8z" }) })
                   }
                 )
@@ -7911,8 +7906,8 @@ function IncofemarComparativa() {
             ] }, b.id);
           }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-cols-1 md:grid-cols-6 items-center gap-2 border-t pt-2", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "md:col-span-5 text-right font-bold", children: "Total residencial" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-right font-extrabold", children: L(residencialesTotal) })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "md:col-span-5 text-right font-bold", children: "Total residencia" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "text-right font-extrabold", children: L(residenciaTotal) })
           ] })
         ] })
       ] }) }),
@@ -7933,11 +7928,11 @@ function IncofemarComparativa() {
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-semibold", children: L(directoryTotalsSum) })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Servicios residenciales seleccionados" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-semibold", children: L(residencialesTotal) })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Servicios de residencia seleccionados" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-semibold", children: L(residenciaTotal) })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "flex items-center justify-between", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Total mensual (m\xF3vil + residencial + equipos)" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Total mensual (m\xF3vil + residencia + equipos)" }),
             /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "font-bold", children: L(totalSinEquipo) })
           ] })
         ] })
@@ -8028,9 +8023,9 @@ var init_main = __esm({
       { id: makeId(), name: "Estela" }
     ];
     INITIAL_BRANCHES = [
-      { id: makeId(), name: "Residencial Francis", provider: "Claro", planKey: "GPON 330 MB + TV" },
-      { id: makeId(), name: "Residencial Amilcar", provider: "Claro", planKey: "GPON 130 MB + TV" },
-      { id: makeId(), name: "Residencial Angela", provider: "Claro", planKey: "TV" }
+      { id: makeId(), name: "Residencia Francis", provider: "Claro", planKey: "GPON 500 MB" },
+      { id: makeId(), name: "Residencia Amilcar", provider: "Claro", planKey: "GPON 130 MB + TV" },
+      { id: makeId(), name: "Residencia Angela", provider: "Claro", planKey: "TV" }
     ];
     DIRECTORY_DEFAULT = [
       { name: "Francis", phone: "8787-1455", operator: "Claro Prepago" },
@@ -8114,4 +8109,4 @@ react/cjs/react-jsx-runtime.production.min.js:
    * LICENSE file in the root directory of this source tree.
    *)
 */
-//# sourceMappingURL=main.js.map
+//# sourceMappingURL=main.1757300806.js.map
