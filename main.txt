@@ -295,7 +295,6 @@ export default function IncofemarComparativa() {
       setHydrated(true);
     })();
   }, []);
-  }, []);
 
   // Defaults after hydration + asegurar nombres base presentes y datos por persona
   useEffect(() => {
