@@ -23,6 +23,8 @@ jobs:
           npm i -D esbuild firebase
       - name: Build
         run: |
+          set +o histexpand || true
+          setopt NO_HIST_SUBST 2>/dev/null || true; set +H 2>/dev/null || true
           mkdir -p shell-scripts/code
           cat > shell-scripts/code/mount_entry.tsx <<'TSX'
           import * as React from "react";

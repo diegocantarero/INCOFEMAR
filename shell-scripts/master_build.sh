@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# Harden history expansion for bash
+set +o histexpand 2>/dev/null || true
 
 # === Config & rutas (dinámicas para Warp) ===
 PROJ="${PROJ_OVERRIDE:-$PWD}"

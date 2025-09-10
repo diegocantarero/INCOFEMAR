@@ -1,0 +1,2 @@
+window.FB_CONFIG = {};
+

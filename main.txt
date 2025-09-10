@@ -153,6 +153,7 @@ export default function IncofemarComparativa() {
   const [hydrated, setHydrated] = useState(false);
   const [FB_READY, setFB_READY] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const liveOn = typeof window !== 'undefined' && !!((window as any).FB_CONFIG?.apiKey);
 
   // Persistencia remota (GitHub) y Undo (10s)
   const [undo, setUndo] = useState<any>(null);
@@ -517,6 +518,13 @@ export default function IncofemarComparativa() {
             <h1 className="text-3xl font-extrabold tracking-tight">
               INCOFEMAR · <span className="text-blue-500">Comparativa Postpago</span>
             </h1>
+            <div className="mt-1 text-xs">
+              {liveOn ? (
+                <span className="inline-block rounded-md bg-green-100 text-green-800 px-2 py-0.5 ring-1 ring-green-300">Live collaboration: ON</span>
+              ) : (
+                <span className="inline-block rounded-md bg-amber-50 text-amber-900 px-2 py-0.5 ring-1 ring-amber-300">Live collaboration is OFF (missing Firebase config)</span>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <button
