@@ -47,7 +47,7 @@ const TIGO_PER_LINE = 510;
 // Financiados (importe mensual con ISV ya incluido)
 const A16_MONTHLY = 532.13;
 const TAB_A9_MONTHLY_50 = 515.26;
-const IP16PRO_256_MONTHLY = 1836.0; // iPhone 16 Pro 256GB
+const IP16PRO_256_MONTHLY = 1596.52; // iPhone 16 Pro 256GB (sin ISV; la app aplica ISV al subtotal)
 
 // Internet de residencia
 const INTERNET_MAP: Record<string, { key: string; price: number }[]> = {
@@ -137,7 +137,7 @@ function buildDefaultDevices(peopleArr: Person[]) {
   const byName = (n: string) => peopleArr.find((p) => (p.name || "").toLowerCase() === n.toLowerCase());
   const map: Record<string, DeviceKey[]> = {};
   const am = byName("Amilcar"); if (am) map[am.id] = ["Galaxy A16"];
-  const al = byName("Alfredo"); if (al) map[al.id] = ["Galaxy A16"];
+  const al = byName("Alfredo"); if (al) map[al.id] = ["iPhone 16 Pro 256GB"];
   const fr = byName("Francis"); if (fr) map[fr.id] = ["Samsung Tab A9"];
   return map;
 }
@@ -145,7 +145,10 @@ function buildDefaultDevices(peopleArr: Person[]) {
 function buildDefaultPlans(peopleArr: Person[]): Record<string, PlanTier> {
   const map: Record<string, PlanTier> = {};
   for (const p of peopleArr) {
-    map[p.id] = p.name.toLowerCase() === "linsey" ? "Bss 2" : "Bss S";
+    const nm = (p.name || "").toLowerCase();
+    if (nm === "linsey") map[p.id] = "Bss 2" as PlanTier;
+    else if (nm === "alfredo") map[p.id] = "Bss 5" as PlanTier;
+    else map[p.id] = "Bss S" as PlanTier;
   }
   return map;
 }
@@ -365,8 +368,23 @@ export default function IncofemarComparativa() {
       let changed = false;
       for (const p of people) {
         if (!(p.id in next)) {
-          next[p.id] = p.name.toLowerCase() === "linsey" ? "Bss 2" : "Bss S";
+          const nm = (p.name || "").toLowerCase();
+          next[p.id] = nm === "linsey" ? "Bss 2" as PlanTier : nm === "alfredo" ? "Bss 5" as PlanTier : "Bss S" as PlanTier;
           changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // Asegurar mínimo Bss 5 para cualquier persona con iPhone seleccionado
+    setPlanByPerson((prev) => {
+      const next = { ...prev } as Record<string, PlanTier>;
+      let changed = false;
+      for (const p of people) {
+        const hasIphone = Array.isArray(devicesByPerson[p.id]) && (devicesByPerson[p.id] as any[]).includes("iPhone 16 Pro 256GB");
+        if (hasIphone) {
+          const cur = (next[p.id] || "Bss S") as PlanTier;
+          const coerced = planMin(MIN_PLAN_FOR_IPHONE, cur);
+          if (coerced !== cur) { next[p.id] = coerced; changed = true; }
         }
       }
       return changed ? next : prev;
