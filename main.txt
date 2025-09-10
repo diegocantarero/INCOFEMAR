@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { initFirebase } from "./shell-scripts/code/firebase_client";
+import { getLocal, setLocal, mergeStates, clientId, now } from "./shell-scripts/code/state_core";
 
 // Helpers
 const L = (n: number | string) => `L${Number(n).toLocaleString("es-HN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -153,6 +154,8 @@ export default function IncofemarComparativa() {
   const [hydrated, setHydrated] = useState(false);
   const [FB_READY, setFB_READY] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [FB_ERR, setFB_ERR] = useState<string | null>(null);
+  const CID = useMemo(() => clientId(), []);
   const liveOn = FB_READY || (typeof window !== 'undefined' && !!((window as any).FB_CONFIG?.apiKey));
 
   // Persistencia remota (GitHub) y Undo (10s)
@@ -221,60 +224,74 @@ export default function IncofemarComparativa() {
     setUndoTimerId(t);
   }
 
-  // Hydrate (Firestore live sync if configured) + fallback (remote JSON -> localStorage)
+  // Hydrate robusto: 1) Local siempre; 2) Firebase si está configurado (merge y push si remoto vacío)
   useEffect(() => {
     (async () => {
       const hasFB = !!((window as any).FB_CONFIG?.apiKey);
 
-      // 1) Firestore live sync (optional, only if FB_CONFIG is provided)
+      // 1) Local primero
+      try {
+        const L: any = getLocal();
+        if (Array.isArray(L.people)) setPeople(L.people);
+        if (L.dark != null) setDark(L.dark);
+        if (Array.isArray(L.branches)) setBranches(L.branches);
+        if (L.mobilePlan) setMobilePlan(L.mobilePlan);
+        if (L.devicesByPerson) setDevicesByPerson(L.devicesByPerson);
+        if (L.planByPerson) setPlanByPerson(L.planByPerson);
+        if (L.contactsByPerson) setContactsByPerson(L.contactsByPerson);
+      } catch {}
+
+      // 2) Firestore live sync (opcional)
       try {
         if (hasFB) {
           const { save, subscribe } = await initFirebase();
-          // Realtime subscription (mark hydrated on first snapshot)
           let firstSnap = true;
-          subscribe((r: any) => {
-            try {
-              const hasAny = !!(r?.people) || (Array.isArray(r?.branches) && r?.branches.length > 0) || !!r?.planByPerson || !!r?.devicesByPerson || !!r?.contactsByPerson;
-              if (hasAny) {
-                if (r.people) setPeople(r.people);
-                if (r.dark != null) setDark(r.dark);
-                if (Array.isArray(r.branches)) setBranches(r.branches);
-                if (r.mobilePlan) setMobilePlan(r.mobilePlan);
-                if (r.devicesByPerson) setDevicesByPerson(r.devicesByPerson);
-                if (r.planByPerson) setPlanByPerson(r.planByPerson);
-                if (r.contactsByPerson) setContactsByPerson(r.contactsByPerson);
-              } else if (firstSnap) {
-                // Firestore está vacío (probablemente sin permisos de escritura aún). Fallback a localStorage para no perder cambios entre refresh.
+          // helper debounced attach
+          (window as any).__SAM_SAVE__ = ((fn: any, ms = 700) => {
+            let t: any;
+            return (...args: any[]) => {
+              if (t) clearTimeout(t);
+              t = setTimeout(async () => {
                 try {
-                  const raw = localStorage.getItem(STORAGE_KEY);
-                  if (raw) {
-                    const p = JSON.parse(raw);
-                    if (p.people) setPeople(p.people);
-                    if (p.dark != null) setDark(p.dark);
-                    if (Array.isArray(p.branches)) setBranches(p.branches);
-                    if (p.mobilePlan) setMobilePlan(p.mobilePlan);
-                    if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
-                    if (p.planByPerson) setPlanByPerson(p.planByPerson);
-                    if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
-                    try { if ((window as any).__SAM_SAVE__) (window as any).__SAM_SAVE__(p); } catch {}
-                  }
-                } catch {}
+                  await fn(...args);
+                  (window as any).__SAM_SAVE_ERROR = false;
+                } catch (e) {
+                  (window as any).__SAM_SAVE_ERROR = true;
+                  console.warn('FB save error', e);
+                  try { setFB_ERR('Save error'); } catch {}
+                }
+              }, ms);
+            };
+          })((snap: any) => save(snap), 700);
+
+          subscribe((R: any) => {
+            try {
+              const local = getLocal();
+              const merged = mergeStates(local || {}, R || {});
+              if (Array.isArray(merged.people)) setPeople(merged.people);
+              if (merged.dark != null) setDark(merged.dark);
+              if (Array.isArray(merged.branches)) setBranches(merged.branches);
+              if (merged.mobilePlan) setMobilePlan(merged.mobilePlan);
+              if (merged.devicesByPerson) setDevicesByPerson(merged.devicesByPerson);
+              if (merged.planByPerson) setPlanByPerson(merged.planByPerson);
+              if (merged.contactsByPerson) setContactsByPerson(merged.contactsByPerson);
+
+              const hasRemote = !!(R && (R.people || R.branches || R.devicesByPerson || R.planByPerson || R.contactsByPerson));
+              const hasLocal = !!(local && (local.people || local.branches || local.devicesByPerson || local.planByPerson || local.contactsByPerson));
+              if (!hasRemote && hasLocal && (window as any).__SAM_SAVE__) {
+                const payload = { ...local, updatedAt: now(), origin: CID };
+                try { (window as any).__SAM_SAVE__(payload); } catch {}
               }
             } catch {}
             if (firstSnap) { firstSnap = false; setHydrated(true); }
           });
-          // Debounced remote save helper
-          (window as any).__SAM_SAVE__ = ((fn: any, ms = 700) => {
-            let t: any;
-            return (...args: any[]) => { if (t) clearTimeout(t); t = setTimeout(async () => { try { await fn(...args); (window as any).__SAM_SAVE_ERROR = false; } catch (e) { (window as any).__SAM_SAVE_ERROR = true; console.warn('FB save error', e); } }, ms); };
-          })((snap: any) => save(snap), 700);
           setFB_READY(true);
         }
       } catch (e) { console.warn("FB init", e); }
 
-      // 2) Remote JSON (GitHub raw) hydration (skip entirely if Firebase is configured)
-      let loaded = false;
+      // 3) Si no hay Firebase, intentar GitHub JSON y luego LS (ya cargado)
       if (!hasFB) {
+        let loaded = false;
         try {
           const url = "https://raw.githubusercontent.com/diegocantarero/INCOFEMAR/main/state.json?cb=" + Date.now();
           const resp = await fetch(url, { cache: "no-store" });
@@ -290,37 +307,11 @@ export default function IncofemarComparativa() {
             loaded = true;
           }
         } catch {}
+        if (!loaded) {
+          // ya hicimos local al principio
+        }
+        setHydrated(true);
       }
-
-      // 3) LocalStorage fallback (with minor normalization)
-      if (!hasFB && !loaded) {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          if (raw) {
-            const p = JSON.parse(raw);
-            if (p.people) setPeople(p.people);
-            if (p.dark != null) setDark(p.dark);
-            if (Array.isArray(p.branches) && p.branches.length) {
-              const normalized = p.branches.map((b: any) => {
-                const nm = String(b.name || "").trim();
-                const lower = nm.toLowerCase();
-                let fixed = nm;
-                if (lower.startsWith("casa ")) fixed = "Residencial " + nm.slice(5);
-                if (lower.startsWith("residencail ")) fixed = "Residencial " + nm.slice(11);
-                return { ...b, name: fixed };
-              });
-              setBranches(normalized);
-            }
-            if (p.mobilePlan) setMobilePlan(p.mobilePlan === "Personal" ? "Actual" : p.mobilePlan);
-            if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
-            if (p.planByPerson) setPlanByPerson(p.planByPerson);
-            if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
-          }
-        } catch {}
-      }
-
-      // Hydrated flag: for Firebase it's set on first snapshot; otherwise set it here
-      if (!hasFB) setHydrated(true);
     })();
   }, []);
 
@@ -393,14 +384,14 @@ export default function IncofemarComparativa() {
     });
   }, [hydrated, people]);
 
-  // Persist: localStorage + (si hay token) GitHub + (si hay Firebase) Firestore
+  // Persistencia: siempre localStorage y, si está Firebase, publicar con debounce
   useEffect(() => {
     if (!hydrated) return;
     try {
-      const snapshot = snapshotState();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-      enqueueSaveRemote();
-      try { if (FB_READY && (window as any).__SAM_SAVE__) (window as any).__SAM_SAVE__(snapshot); } catch {}
+      const snapshot: any = { ...snapshotState(), updatedAt: now(), origin: CID };
+      setLocal(snapshot);
+      enqueueSaveRemote(); // GitHub (si hay token)
+      try { if (FB_READY && (window as any).__SAM_SAVE__) (window as any).__SAM_SAVE__(snapshot); } catch (e) { try { setFB_ERR('Save error'); } catch {} }
     } catch {}
   }, [hydrated, people, dark, branches, mobilePlan, devicesByPerson, planByPerson, contactsByPerson, FB_READY]);
 
