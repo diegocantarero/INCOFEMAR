@@ -51,13 +51,9 @@ jobs:
           <script type="module" src="./main.js?v=${BUST}"></script>
           </body></html>
           HTML
-          # Ensure firebase config placeholder exists
-          if [ ! -f dist/firebase-config.js ]; then echo 'window.FB_CONFIG={};' > dist/firebase-config.js; fi
-          # Static assets
           if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
-          # Pages-friendly extras
-          touch dist/.nojekyll
-          cp dist/index.html dist/404.html
+          # If a repo-root firebase-config.js exists, include it
+          if [ -f firebase-config.js ] && [ ! -f dist/firebase-config.js ]; then cp firebase-config.js dist/firebase-config.js; fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with: { path: dist }
@@ -70,4 +66,3 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
-
