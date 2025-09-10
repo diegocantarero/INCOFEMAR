@@ -234,20 +234,39 @@ export default function IncofemarComparativa() {
           let firstSnap = true;
           subscribe((r: any) => {
             try {
-              if (r.people) setPeople(r.people);
-              if (r.dark != null) setDark(r.dark);
-              if (Array.isArray(r.branches)) setBranches(r.branches);
-              if (r.mobilePlan) setMobilePlan(r.mobilePlan);
-              if (r.devicesByPerson) setDevicesByPerson(r.devicesByPerson);
-              if (r.planByPerson) setPlanByPerson(r.planByPerson);
-              if (r.contactsByPerson) setContactsByPerson(r.contactsByPerson);
+              const hasAny = !!(r?.people) || (Array.isArray(r?.branches) && r?.branches.length > 0) || !!r?.planByPerson || !!r?.devicesByPerson || !!r?.contactsByPerson;
+              if (hasAny) {
+                if (r.people) setPeople(r.people);
+                if (r.dark != null) setDark(r.dark);
+                if (Array.isArray(r.branches)) setBranches(r.branches);
+                if (r.mobilePlan) setMobilePlan(r.mobilePlan);
+                if (r.devicesByPerson) setDevicesByPerson(r.devicesByPerson);
+                if (r.planByPerson) setPlanByPerson(r.planByPerson);
+                if (r.contactsByPerson) setContactsByPerson(r.contactsByPerson);
+              } else if (firstSnap) {
+                // Firestore está vacío (probablemente sin permisos de escritura aún). Fallback a localStorage para no perder cambios entre refresh.
+                try {
+                  const raw = localStorage.getItem(STORAGE_KEY);
+                  if (raw) {
+                    const p = JSON.parse(raw);
+                    if (p.people) setPeople(p.people);
+                    if (p.dark != null) setDark(p.dark);
+                    if (Array.isArray(p.branches)) setBranches(p.branches);
+                    if (p.mobilePlan) setMobilePlan(p.mobilePlan);
+                    if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
+                    if (p.planByPerson) setPlanByPerson(p.planByPerson);
+                    if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
+                    try { if ((window as any).__SAM_SAVE__) (window as any).__SAM_SAVE__(p); } catch {}
+                  }
+                } catch {}
+              }
             } catch {}
             if (firstSnap) { firstSnap = false; setHydrated(true); }
           });
           // Debounced remote save helper
           (window as any).__SAM_SAVE__ = ((fn: any, ms = 700) => {
             let t: any;
-            return (...args: any[]) => { if (t) clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+            return (...args: any[]) => { if (t) clearTimeout(t); t = setTimeout(async () => { try { await fn(...args); (window as any).__SAM_SAVE_ERROR = false; } catch (e) { (window as any).__SAM_SAVE_ERROR = true; console.warn('FB save error', e); } }, ms); };
           })((snap: any) => save(snap), 700);
           setFB_READY(true);
         }
