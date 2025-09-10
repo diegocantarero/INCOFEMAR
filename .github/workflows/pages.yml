@@ -56,6 +56,8 @@ jobs:
           if [ -d assets ]; then mkdir -p dist/assets && cp -R assets/. dist/assets/; fi
           # If a repo-root firebase-config.js exists, include it
           if [ -f firebase-config.js ] && [ ! -f dist/firebase-config.js ]; then cp firebase-config.js dist/firebase-config.js; fi
+      - name: Verify Firebase inclusion
+        run: bash shell-scripts/checks/verify_firebase.sh
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with: { path: dist }

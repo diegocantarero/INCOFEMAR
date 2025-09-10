@@ -80,6 +80,8 @@ npx --yes esbuild "$ENTRY" \
   --loader:.txt=tsx \
   --define:process.env.NODE_ENV='"production"' \
   --outfile="dist/${OUTJS}" >>"$BUILDLOG" 2>>"$ERR" || { fail "esbuild falló (ver $BUILDLOG)"; }
+# Asegurar compatibilidad: mantener un alias estático dist/main.js
+cp -f "dist/${OUTJS}" "dist/main.js"
 
 ls -lh dist/ | tee -a "$RUN"
 
@@ -110,8 +112,10 @@ cat > dist/index.html <<HTML
 </html>
 HTML
 
-# firebase-config placeholder (si no existe)
-if [[ ! -f dist/firebase-config.js ]]; then
+# Copiar firebase-config.js desde la raíz si existe; de lo contrario, placeholder
+if [[ -f firebase-config.js ]]; then
+  cp firebase-config.js dist/firebase-config.js
+elif [[ ! -f dist/firebase-config.js ]]; then
   cat > dist/firebase-config.js <<'JS'
 // Pega aquí tu config Firebase Web:
 window.FB_CONFIG = {

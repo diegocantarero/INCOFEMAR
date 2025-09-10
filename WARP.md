@@ -64,3 +64,16 @@ After writing the file, run:
 - git add WARP.md
 - git commit -m "docs: add WARP.md for Warp assistants"
 
+
+Firebase integration
+- The app uses the Firebase Web SDK via npm inside the bundle. Do not import the SDK in firebase-config.js.
+- Configuration must be provided at runtime via window.FB_CONFIG in a plain script firebase-config.js at the repo root.
+- Precedence at load: if FB_CONFIG is present, the app uses Firestore only (GitHub JSON and localStorage hydration are skipped). If FB_CONFIG is missing, it tries GitHub JSON first and falls back to localStorage.
+- Local build: shell-scripts/master_build.sh copies firebase-config.js to dist/ if present; otherwise it writes a placeholder.
+- CI build: .github/workflows/pages.yml copies firebase-config.js from the repo root to dist/ if present.
+- Initialization happens in shell-scripts/code/firebase_client.ts using initializeApp(window.FB_CONFIG) and Anonymous Auth + Firestore sync.
+- If window.FB_CONFIG is missing or incomplete, initialization logs a console error and throws early.
+
+Reversion/fallback plan
+- If npm SDK inclusion becomes problematic, you can keep window.FB_CONFIG and swap to CDN loader (gstatic) that calls initializeApp and exposes the app on window; however, the preferred path is npm + config file as above.
+
