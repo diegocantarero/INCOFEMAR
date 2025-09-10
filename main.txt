@@ -47,6 +47,7 @@ const TIGO_PER_LINE = 510;
 // Financiados (importe mensual con ISV ya incluido)
 const A16_MONTHLY = 532.13;
 const TAB_A9_MONTHLY_50 = 515.26;
+const IP16PRO_256_MONTHLY = 1836.0; // iPhone 16 Pro 256GB
 
 // Internet de residencia
 const INTERNET_MAP: Record<string, { key: string; price: number }[]> = {
@@ -90,11 +91,13 @@ const INITIAL_BRANCHES: Branch[] = [
 ];
 
 // Dispositivos financiados
-type DeviceKey = "Galaxy A16" | "Samsung Tab A9";
+type DeviceKey = "Galaxy A16" | "Samsung Tab A9" | "iPhone 16 Pro 256GB";
 const DEVICE_OPTIONS: { key: DeviceKey; monthly: number }[] = [
   { key: "Galaxy A16", monthly: A16_MONTHLY },
   { key: "Samsung Tab A9", monthly: TAB_A9_MONTHLY_50 },
+  { key: "iPhone 16 Pro 256GB", monthly: IP16PRO_256_MONTHLY },
 ];
+const DEVICE_MONTHLY: Record<DeviceKey, number> = Object.fromEntries(DEVICE_OPTIONS.map(d => [d.key, d.monthly])) as any;
 
 // Directorio base
 type DirectorySeed = { name: string; phone: string; operator: string };
@@ -108,12 +111,25 @@ const DIRECTORY_DEFAULT: DirectorySeed[] = [
 ];
 
 // Plan por línea (sin ISV)
-export type PlanTier = "Bss S" | "Bss 1" | "Bss 2";
+export type PlanTier =
+  | "Bss S" | "Bss 1" | "Bss 2" | "Bss 3" | "Bss 4" | "Bss 5" | "Bss 6" | "Bss 7" | "Bss 8" | "Bss 9" | "Bss 10";
 const PLAN_BASE_SIN_ISV: Record<PlanTier, number> = {
   "Bss S": 309,
   "Bss 1": 399,
   "Bss 2": 519,
+  "Bss 3": 639,
+  "Bss 4": 779,
+  "Bss 5": 1019,
+  "Bss 6": 1399,
+  "Bss 7": 1659,
+  "Bss 8": 2039,
+  "Bss 9": 2549,
+  "Bss 10": 3059,
 };
+const PLAN_ORDER: PlanTier[] = ["Bss S","Bss 1","Bss 2","Bss 3","Bss 4","Bss 5","Bss 6","Bss 7","Bss 8","Bss 9","Bss 10"];
+const MIN_PLAN_FOR_IPHONE: PlanTier = "Bss 5";
+function planIndex(p: PlanTier){ return PLAN_ORDER.indexOf(p as any); }
+function planMin(required: PlanTier, current: PlanTier): PlanTier { return planIndex(current) < planIndex(required) ? required : current; }
 
 const STORAGE_KEY = "incofemar_comp_vs_v6";
 
@@ -420,14 +436,13 @@ export default function IncofemarComparativa() {
       const seed = DIRECTORY_DEFAULT.find((d) => (d.name || "").toLowerCase() === (p.name || "").toLowerCase());
       const contact = contactsByPerson[p.id] || { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
       const devices = devicesByPerson[p.id] || [];
-      const planTier = planByPerson[p.id] || "Bss S";
+      const planTier = planByPerson[p.id] || "Bss S" as PlanTier;
       const sinISV = PLAN_BASE_SIN_ISV[planTier] ?? 0;
-      const finA16 = devices.filter((x) => x === "Galaxy A16").length * 64;
-      const finA9 = devices.filter((x) => x === "Samsung Tab A9").length * 49;
-      const finance = round2(finA16 + finA9);
+      const finance = round2((devices as DeviceKey[]).reduce((sum, key) => sum + (DEVICE_MONTHLY[key] || 0), 0));
       const subtotal = round2(sinISV + finance);
       const isv = round2(subtotal * 0.15);
       const total = round2(subtotal + isv);
+      const abbrev = (k: DeviceKey) => k === "Galaxy A16" ? "A16" : k === "Samsung Tab A9" ? "Tab A9" : "iPhone 16 Pro";
       return {
         id: p.id,
         name: p.name,
@@ -439,7 +454,7 @@ export default function IncofemarComparativa() {
         subtotal,
         isv,
         total,
-        deviceLabel: devices.length ? devices.map((x) => (x === "Galaxy A16" ? "A16" : "Tab A9")).join(", ") : "—",
+        deviceLabel: devices.length ? (devices as DeviceKey[]).map(abbrev).join(", ") : "—",
       } as any;
     });
   }, [people, devicesByPerson, planByPerson, contactsByPerson]);
@@ -490,6 +505,15 @@ export default function IncofemarComparativa() {
       if (!value) delete next[pid]; else next[pid] = [value];
       return next;
     });
+    // Si se elige iPhone, forzar plan mínimo Bss 5
+    if (value === "iPhone 16 Pro 256GB") {
+      setPlanByPerson((prev) => {
+        const cur = (prev[pid] || "Bss S") as PlanTier;
+        const coerced = planMin(MIN_PLAN_FOR_IPHONE, cur);
+        if (coerced !== cur) return { ...prev, [pid]: coerced } as any;
+        return prev;
+      });
+    }
   }, []);
 
   // DnD reordenamiento por filas
@@ -649,17 +673,25 @@ export default function IncofemarComparativa() {
                         <option value="">—</option>
                         <option value="Galaxy A16">Galaxy A16</option>
                         <option value="Samsung Tab A9">Samsung Tab A9</option>
+                        <option value="iPhone 16 Pro 256GB">iPhone 16 Pro 256GB</option>
                       </select>
                     </td>
                     <td className="px-3 py-2">
                       <select
                         className="rounded-xl border px-2 py-1 bg-transparent"
                         value={planByPerson[r.id] || "Bss S"}
-                        onChange={(e) => setPlanByPerson((prev) => ({ ...prev, [r.id]: e.target.value as PlanTier }))}
+                        onChange={(e) => setPlanByPerson((prev) => {
+                          const chosen = e.target.value as PlanTier;
+                          const hasIphone = ((devicesByPerson[r.id] || []) as DeviceKey[]).includes("iPhone 16 Pro 256GB");
+                          const finalPlan = hasIphone ? planMin(MIN_PLAN_FOR_IPHONE, chosen) : chosen;
+                          return { ...prev, [r.id]: finalPlan } as any;
+                        })}
                       >
-                        <option value="Bss S">Bss S</option>
-                        <option value="Bss 1">Bss 1</option>
-                        <option value="Bss 2">Bss 2</option>
+                        {PLAN_ORDER.map((pl) => {
+                          const hasIphone = ((devicesByPerson[r.id] || []) as DeviceKey[]).includes("iPhone 16 Pro 256GB");
+                          const disabled = hasIphone && planIndex(pl) < planIndex(MIN_PLAN_FOR_IPHONE);
+                          return <option key={pl} value={pl} disabled={disabled}>{pl}</option>;
+                        })}
                       </select>
                     </td>
                     <td className="px-3 py-2 text-right">{L(r.sinISV)}</td>
