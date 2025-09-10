@@ -153,7 +153,7 @@ export default function IncofemarComparativa() {
   const [hydrated, setHydrated] = useState(false);
   const [FB_READY, setFB_READY] = useState(false);
   const [dragId, setDragId] = useState<string | null>(null);
-  const liveOn = typeof window !== 'undefined' && !!((window as any).FB_CONFIG?.apiKey);
+  const liveOn = FB_READY || (typeof window !== 'undefined' && !!((window as any).FB_CONFIG?.apiKey));
 
   // Persistencia remota (GitHub) y Undo (10s)
   const [undo, setUndo] = useState<any>(null);
@@ -224,11 +224,14 @@ export default function IncofemarComparativa() {
   // Hydrate (Firestore live sync if configured) + fallback (remote JSON -> localStorage)
   useEffect(() => {
     (async () => {
+      const hasFB = !!((window as any).FB_CONFIG?.apiKey);
+
       // 1) Firestore live sync (optional, only if FB_CONFIG is provided)
       try {
-        if ((window as any).FB_CONFIG?.apiKey) {
+        if (hasFB) {
           const { save, subscribe } = await initFirebase();
-          // Realtime subscription
+          // Realtime subscription (mark hydrated on first snapshot)
+          let firstSnap = true;
           subscribe((r: any) => {
             try {
               if (r.people) setPeople(r.people);
@@ -239,6 +242,7 @@ export default function IncofemarComparativa() {
               if (r.planByPerson) setPlanByPerson(r.planByPerson);
               if (r.contactsByPerson) setContactsByPerson(r.contactsByPerson);
             } catch {}
+            if (firstSnap) { firstSnap = false; setHydrated(true); }
           });
           // Debounced remote save helper
           (window as any).__SAM_SAVE__ = ((fn: any, ms = 700) => {
@@ -249,26 +253,28 @@ export default function IncofemarComparativa() {
         }
       } catch (e) { console.warn("FB init", e); }
 
-      // 2) Remote JSON (GitHub raw) hydration
+      // 2) Remote JSON (GitHub raw) hydration (skip entirely if Firebase is configured)
       let loaded = false;
-      try {
-        const url = "https://raw.githubusercontent.com/diegocantarero/INCOFEMAR/main/state.json?cb=" + Date.now();
-        const resp = await fetch(url, { cache: "no-store" });
-        if (resp.ok) {
-          const p = await resp.json();
-          if (p.people) setPeople(p.people);
-          if (p.dark != null) setDark(p.dark);
-          if (Array.isArray(p.branches)) setBranches(p.branches);
-          if (p.mobilePlan) setMobilePlan(p.mobilePlan);
-          if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
-          if (p.planByPerson) setPlanByPerson(p.planByPerson);
-          if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
-          loaded = true;
-        }
-      } catch {}
+      if (!hasFB) {
+        try {
+          const url = "https://raw.githubusercontent.com/diegocantarero/INCOFEMAR/main/state.json?cb=" + Date.now();
+          const resp = await fetch(url, { cache: "no-store" });
+          if (resp.ok) {
+            const p = await resp.json();
+            if (p.people) setPeople(p.people);
+            if (p.dark != null) setDark(p.dark);
+            if (Array.isArray(p.branches)) setBranches(p.branches);
+            if (p.mobilePlan) setMobilePlan(p.mobilePlan);
+            if (p.devicesByPerson) setDevicesByPerson(p.devicesByPerson);
+            if (p.planByPerson) setPlanByPerson(p.planByPerson);
+            if (p.contactsByPerson) setContactsByPerson(p.contactsByPerson);
+            loaded = true;
+          }
+        } catch {}
+      }
 
       // 3) LocalStorage fallback (with minor normalization)
-      if (!loaded) {
+      if (!hasFB && !loaded) {
         try {
           const raw = localStorage.getItem(STORAGE_KEY);
           if (raw) {
@@ -293,7 +299,9 @@ export default function IncofemarComparativa() {
           }
         } catch {}
       }
-      setHydrated(true);
+
+      // Hydrated flag: for Firebase it's set on first snapshot; otherwise set it here
+      if (!hasFB) setHydrated(true);
     })();
   }, []);
 

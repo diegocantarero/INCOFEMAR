@@ -4,7 +4,10 @@ import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 
 export async function initFirebase(){
   const cfg = (window as any).FB_CONFIG || {};
-  if (!cfg.apiKey) throw new Error("FB_CONFIG vacío (edita firebase-config.js).");
+  if (!cfg.apiKey) {
+    console.error("[Firebase] window.FB_CONFIG no definido o sin apiKey. Revisa firebase-config.js");
+    throw new Error("FB_CONFIG vacío (edita firebase-config.js).");
+  }
   const app = initializeApp(cfg);
   const db = getFirestore(app);
   const auth = getAuth(app);
