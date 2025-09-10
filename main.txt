@@ -74,6 +74,8 @@ const makeId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 // Personas
 type Person = { id: string; name: string };
 const INITIAL_PEOPLE: Person[] = [
+  { id: makeId(), name: "Abdiel" },
+  { id: makeId(), name: "Karla" },
   { id: makeId(), name: "Francis" },
   { id: makeId(), name: "Amilcar" },
   { id: makeId(), name: "Alfredo" },
@@ -100,8 +102,18 @@ const DEVICE_OPTIONS: { key: DeviceKey; monthly: number }[] = [
 const DEVICE_MONTHLY: Record<DeviceKey, number> = Object.fromEntries(DEVICE_OPTIONS.map(d => [d.key, d.monthly])) as any;
 
 // Directorio base
+// Normalización de operador
+function normalizeOperator(op: string): string {
+  const raw = String(op || "").trim().toLowerCase();
+  if (raw === "tigo") return "Tigo Prepago";
+  if (raw === "claro") return "Claro Prepago";
+  return op || "Claro Prepago";
+}
+
 type DirectorySeed = { name: string; phone: string; operator: string };
 const DIRECTORY_DEFAULT: DirectorySeed[] = [
+  { name: "Abdiel", phone: "9809-0464", operator: "Tigo Prepago" },
+  { name: "Karla", phone: "9931-4881", operator: "Tigo Prepago" },
   { name: "Francis", phone: "8787-1455", operator: "Claro Prepago" },
   { name: "Estela", phone: "3223-9887", operator: "Claro Prepago" },
   { name: "Amilcar", phone: "9969-6296", operator: "Tigo Prepago" },
@@ -156,8 +168,8 @@ function buildDefaultPlans(peopleArr: Person[]): Record<string, PlanTier> {
 function buildDefaultContacts(peopleArr: Person[]) {
   const map: Record<string, { phone: string; operator: string }> = {};
   for (const p of peopleArr) {
-    const seed = DIRECTORY_DEFAULT.find((d) => d.name.toLowerCase() === (p.name || "").toLowerCase());
-    map[p.id] = { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
+    const seed = DIRECTORY_DEFAULT.find((d) => (d.name || "").toLowerCase() === (p.name || "").toLowerCase());
+    map[p.id] = { phone: seed?.phone || "", operator: normalizeOperator(seed?.operator || "Claro Prepago") };
   }
   return map;
 }
@@ -395,7 +407,7 @@ export default function IncofemarComparativa() {
       for (const p of people) {
         if (!(p.id in next)) {
           const seed = DIRECTORY_DEFAULT.find((d) => (d.name || "").toLowerCase() === (p.name || "").toLowerCase());
-          next[p.id] = { phone: seed?.phone || "", operator: seed?.operator || "Claro Prepago" };
+          next[p.id] = { phone: seed?.phone || "", operator: normalizeOperator(seed?.operator || "Claro Prepago") };
           changed = true;
         }
       }
@@ -417,6 +429,21 @@ export default function IncofemarComparativa() {
       return changed ? next : prev;
     });
   }, [hydrated, people]);
+
+  // Normalizar operadores una vez después de hidratar
+  useEffect(() => {
+    if (!hydrated) return;
+    setContactsByPerson((prev) => {
+      const next = { ...(prev || {}) } as Record<string, { phone: string; operator: string }>;
+      let changed = false;
+      for (const k of Object.keys(next)) {
+        const op = next[k]?.operator || "";
+        const norm = normalizeOperator(op);
+        if (norm !== op) { next[k] = { ...(next[k] || {}), operator: norm }; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [hydrated]);
 
   // Persistencia: siempre localStorage y, si está Firebase, publicar con debounce
   useEffect(() => {
